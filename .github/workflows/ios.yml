@@ -1,0 +1,45 @@
+name: iOS Build
+
+on:
+  workflow_dispatch:
+  push:
+    branches: [main]
+  pull_request:
+    branches: [main]
+
+permissions:
+  contents: read
+
+jobs:
+  ios:
+    runs-on: macos-15
+    timeout-minutes: 35
+    steps:
+      - uses: actions/checkout@v4
+      - uses: subosito/flutter-action@v2
+        with:
+          channel: stable
+          flutter-version: '3.50.1'
+          cache: true
+      - name: Toolchain
+        run: |
+          xcodebuild -version
+          pod --version
+          flutter --version
+      - run: flutter pub get --enforce-lockfile
+      - run: flutter analyze --no-pub
+      - run: flutter test --no-pub
+      - name: Build unsigned iOS archive
+        run: flutter build ipa --release --no-codesign --no-pub
+      - name: Package archive
+        run: |
+          test -f build/ios/archive/Runner.xcarchive/Products/Applications/Runner.app/Runner
+          ditto -c -k --sequesterRsrc --keepParent build/ios/archive/Runner.xcarchive Runner-unsigned.xcarchive.zip
+          shasum -a 256 Runner-unsigned.xcarchive.zip > Runner-unsigned.xcarchive.zip.sha256
+      - uses: actions/upload-artifact@v4
+        with:
+          name: daily-dictation-ios-unsigned
+          path: |
+            Runner-unsigned.xcarchive.zip
+            Runner-unsigned.xcarchive.zip.sha256
+          if-no-files-found: error

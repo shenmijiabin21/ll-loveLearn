@@ -1,0 +1,37 @@
+{
+  "schema": 1,
+  "edition": "demo-v1",
+  "title": "练习示例",
+  "source": "自编演示数据，册次和课号用于展示排序，不对应教材内容。",
+  "sample": true,
+  "lessons": [
+    {"volume": "3a", "number": 2, "title": "观察与记录", "words": [
+      {"character": "观", "phrase": "观察", "position": 1},
+      {"character": "记", "phrase": "记录", "position": 1},
+      {"character": "影", "phrase": "影子", "position": 1},
+      {"character": "静", "phrase": "安静", "position": 2}
+    ]},
+    {"volume": "3a", "number": 1, "title": "自然景物", "words": [
+      {"character": "湖", "phrase": "湖水", "position": 1},
+      {"character": "桥", "phrase": "石桥", "position": 2},
+      {"character": "林", "phrase": "树林", "position": 2},
+      {"character": "云", "phrase": "白云", "position": 2}
+    ]},
+    {"volume": "2b", "number": 2, "title": "季节变化", "words": [
+      {"character": "芽", "phrase": "发芽", "position": 2},
+      {"character": "暖", "phrase": "温暖", "position": 2}
+    ]},
+    {"volume": "2b", "number": 1, "title": "户外活动", "words": [
+      {"character": "跑", "phrase": "跑步", "position": 1},
+      {"character": "跳", "phrase": "跳远", "position": 1}
+    ]},
+    {"volume": "2a", "number": 2, "title": "身边的物品", "words": [
+      {"character": "书", "phrase": "书本", "position": 1},
+      {"character": "灯", "phrase": "台灯", "position": 2}
+    ]},
+    {"volume": "2a", "number": 1, "title": "熟悉的地方", "words": [
+      {"character": "门", "phrase": "大门", "position": 2},
+      {"character": "园", "phrase": "公园", "position": 2}
+    ]}
+  ]
+}
