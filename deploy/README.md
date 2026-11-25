@@ -66,8 +66,14 @@ docker compose exec -T db psql -U dictation dictation < backup.sql
 建议用 cron 每天执行一次并异地保存。
 
 ## 五、识别说明
-- 后端 `POST /grade` 把笔迹按外接框裁剪后栅格化成 224×224 灰度图，用 RapidOCR（onnxruntime 版 PP-OCR）识别。
-- 识别运行时为 onnxruntime，内存约 100-150MB（远低于 PaddlePaddle 的 400-600MB），模型同为 PP-OCR 系列、精度不变。
-- 儿童手写识别精度不稳定：`MIN_CONF`（默认 0.6；OCR 偏过度自信，建议按样本调到 0.8-0.9）需用真实样本校准。
-- 默认 `VERDICT_MODE=conservative`：OCR 只在置信度达标且匹配时才自动判「正确」，其余（含可能写错）一律「待确认」，杜绝误判错字；家长订正兜底。
+- 后端 `POST /grade` 把笔迹按外接框裁剪后栅格化成 224×224 灰度图（细笔画、大留白），用 RapidOCR（onnxruntime 版 PP-OCR）**只跑识别网络**。
+- **不要开启文字检测**：整格栅格图会被检测网络判成「没有文字」而返回空结果，导致全部题目变成待确认。代码里已固定 `use_det=False, use_cls=False, use_rec=True`。
+- 同一笔迹会渲染两套（原图 + 轻微高斯模糊）取最高置信度，提升稳定性。
+- **识别模型用 PP-OCRv5（mobile）**，构建镜像时自动下载并替换包内自带的 v4。实测同一批真实笔迹：
+  v4 对形变较大的字输出均匀分布（判不出），v5 能稳定识别且候选领先幅度明显。
+- 前端会带上本次练习涉及的字（`allowed`）做**候选字约束解码**，只在几个字之间比较，
+  判别力显著高于在 1.8 万字里开集检索。
+- 实测（真实学生笔迹）：v5 下正确字置信度约 0.38–0.40、领先幅度 0.22–0.25；`MIN_CONF` 默认 0.5（作用于回退的开集识别）。
+- 默认 `VERDICT_MODE=conservative`：只在置信度达标且识别结果与目标字一致时判「正确」，其余一律「待确认」，杜绝误判；家长订正兜底。
+  想看自动判「错字」，把 `VERDICT_MODE=standard`（错字阈值 `min_conf_wrong=0.75`，需按自己孩子的笔迹复核）。
 - 若服务器内存仍紧张，可把 `Dockerfile.recognition` 换成 `Dockerfile`（纯 API，识别接口会回退为待确认）。

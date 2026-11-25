@@ -237,8 +237,16 @@ class WebGrader implements Grader {
             ],
           },
       ];
-      final result = (await api.post('/grade', {'items': items}) as List)
-          .cast<Map<String, dynamic>>();
+      // 把本次练习涉及的字作为候选集，显著提升判别力
+      final allowed =
+          answers.map((a) => a.question.prompt.character).toSet().toList();
+      final result =
+          (await api.post('/grade', {
+                'items': items,
+                'allowed': allowed,
+              })
+                  as List)
+              .cast<Map<String, dynamic>>();
       return [
         for (final item in result)
           (

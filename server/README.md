@@ -2,6 +2,9 @@
 
 FastAPI + PostgreSQL + RapidOCR（onnxruntime 手写识别，可选）。
 
+> 识别只跑识别网络（`use_det=False`）：整格栅格图会被文字检测判成无文字，
+> 导致结果全为待确认。预处理为细笔画 + 大留白，并用双渲染取最优置信度。
+
 ## 本地开发
 
 ```sh

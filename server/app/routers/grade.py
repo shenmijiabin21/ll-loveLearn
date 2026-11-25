@@ -4,7 +4,6 @@ from pydantic import BaseModel, Field
 
 from ..deps import get_current_user
 from ..models import User
-from ..recognition.raster import rasterize
 from ..recognition.recognizer import get_recognizer
 
 router = APIRouter(prefix="/grade", tags=["grade"])
@@ -18,6 +17,8 @@ class GradeItem(BaseModel):
 
 class GradeIn(BaseModel):
     items: list[GradeItem] = Field(min_length=1, max_length=20)
+    # 本次练习涉及的字（候选字约束），不含则按开集识别
+    allowed: list[str] = Field(default_factory=list, max_length=60)
 
 
 class GradeResult(BaseModel):
@@ -47,8 +48,12 @@ async def grade(body: GradeIn, user: User = Depends(get_current_user)):
                 GradeResult(expected=item.expected, verdict="pending", candidates=[])
             )
             continue
-        img = rasterize(strokes)
-        out = await run_in_threadpool(recognizer.classify, item.expected, img)
+        out = await run_in_threadpool(
+            recognizer.classify,
+            item.expected,
+            strokes,
+            body.allowed or None,
+        )
         results.append(
             GradeResult(
                 expected=item.expected,

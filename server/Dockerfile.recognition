@@ -2,6 +2,35 @@ FROM ll-base:latest
 WORKDIR /app
 COPY requirements.txt requirements-recognition.txt ./
 RUN pip install --no-cache-dir -r requirements.txt -r requirements-recognition.txt
+
+# 把手写识别用的 rec 模型从 PP-OCRv4 换成 PP-OCRv5（mobile）。
+# 依据：用真实学生笔迹实测，v4 对形变较大的字会给出均匀分布（无法判断），
+# v5 能稳定识别；模型体积仅 16MB，内存占用基本不变。
+RUN python - <<'PY'
+import os
+import urllib.request
+
+import rapidocr_onnxruntime
+
+URL = (
+    "https://www.modelscope.cn/models/RapidAI/RapidOCR/resolve/master"
+    "/onnx/PP-OCRv5/rec/ch_PP-OCRv5_rec_mobile.onnx"
+)
+dst = os.path.join(
+    os.path.dirname(rapidocr_onnxruntime.__file__),
+    "models",
+    "ch_PP-OCRv4_rec_infer.onnx",
+)
+try:
+    urllib.request.urlretrieve(URL, dst)
+    size = os.path.getsize(dst)
+    if size < 10_000_000:
+        raise RuntimeError("model too small: %d" % size)
+    print("rec model -> PP-OCRv5, %d bytes" % size)
+except Exception as exc:  # 下载失败则保留自带 v4，服务仍可用
+    print("keep bundled rec model:", exc)
+PY
+
 COPY app ./app
 EXPOSE 8000
 CMD ["uvicorn", "app.main:app", "--host", "0.0.0.0", "--port", "8000"]

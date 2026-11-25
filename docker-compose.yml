@@ -24,7 +24,7 @@ services:
       DATABASE_URL: postgresql+asyncpg://dictation:dictation@db:5432/dictation
       JWT_SECRET: ${JWT_SECRET:-please-change-me-to-a-long-random-string}
       CORS_ORIGINS: "*"
-      MIN_CONF: ${MIN_CONF:-0.6}
+      MIN_CONF: ${MIN_CONF:-0.5}
       VERDICT_MODE: ${VERDICT_MODE:-conservative}
     depends_on:
       db:
