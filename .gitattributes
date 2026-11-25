@@ -1,0 +1,8 @@
+# 仓库内统一 LF，避免 Windows 下 CRLF 破坏 shell 脚本与容器构建
+* text=auto eol=lf
+*.sh text eol=lf
+Dockerfile* text eol=lf
+*.png binary
+*.jpg binary
+*.otf binary
+*.ttf binary

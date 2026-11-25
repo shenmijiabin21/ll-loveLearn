@@ -62,3 +62,22 @@ flutter build ipa --release --no-codesign --no-pub
 - **用 Ad Hoc 分发。** 需要 Apple Developer Program、分发证书、匹配的描述文件及已注册的目标设备。将签名后的 IPA 通过受支持的 Apple 设备管理工具安装。证书和私钥放到受控的构建密钥管理中，勿发送到聊天或提交到仓库。
 
 [ML Kit 手写识别指南](https://developers.google.com/ml-kit/vision/digital-ink-recognition) · [支持的语言模型](https://developers.google.com/ml-kit/vision/digital-ink-recognition/base-models) · [Flutter iOS 发布文档](https://docs.flutter.dev/deployment/ios) · [Apple TestFlight](https://developer.apple.com/testflight/)
+
+## 网页版（云端 + 数据库）
+
+在保留手机端本地存储不变的前提下，网页版使用「Flutter Web 前端 + FastAPI 后端 + PostgreSQL + 服务端手写识别」，部署到云服务器。
+
+- **前端**：复用现有 Flutter 代码；网页端登录/注册、多孩子档案、孩子各自的听写进度存云端数据库。
+- **后端**：`server/`（FastAPI）。数据模型见 `server/README.md`。
+- **识别**：网页端把笔迹上传到 `POST /grade`，服务端栅格化后用 RapidOCR（onnxruntime 版 PP-OCR）识别；不确定时回退「待确认 + 家长订正」。
+- **语音**：网页端使用浏览器 SpeechSynthesis 读题（依赖系统中文语音）。
+- **部署**：见 `deploy/README.md`（Docker Compose + Caddy + HTTPS）。
+
+### 构建网页版
+```sh
+flutter pub get --enforce-lockfile
+flutter build web --release --no-pub   # 产物在 build/web
+```
+
+开发联调：`flutter run -d chrome --dart-define=API_BASE_URL=http://localhost:8000`
+

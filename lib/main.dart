@@ -1,5 +1,6 @@
 import 'dart:async';
 
+import 'package:flutter/foundation.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:material_ui/material_ui.dart';
 
@@ -7,13 +8,64 @@ import 'controller.dart';
 import 'domain.dart';
 import 'practice.dart';
 import 'settings.dart';
+import 'web_app.dart';
+import 'web_bridge_stub.dart'
+    if (dart.library.js_interop) 'web_bridge.dart'
+    as bridge;
 
 const paper = Color(0xFFF8F5EC);
 const forest = Color(0xFF193D32);
 const sage = Color(0xFFE4ECDD);
 const textMuted = Color(0xFF526358);
 
-void main() => runApp(const ProviderScope(child: DictationApp()));
+void main() {
+  // 网页端禁用浏览器层滚动/下拉刷新，避免手写时整页跟着滑动
+  if (kIsWeb) {
+    bridge.lockPageScroll();
+    bridge.warmUpSpeech();
+  }
+  runApp(const ProviderScope(child: DictationApp()));
+}
+
+ThemeData buildTheme() => ThemeData(
+      useMaterial3: true,
+      colorScheme: ColorScheme.fromSeed(
+        seedColor: forest,
+        primary: forest,
+        surface: paper,
+      ),
+      scaffoldBackgroundColor: paper,
+      appBarTheme: const AppBarTheme(
+        backgroundColor: paper,
+        foregroundColor: forest,
+      ),
+      navigationBarTheme: const NavigationBarThemeData(
+        backgroundColor: paper,
+        indicatorColor: sage,
+      ),
+      navigationRailTheme: const NavigationRailThemeData(
+        backgroundColor: paper,
+        indicatorColor: sage,
+      ),
+      filledButtonTheme: FilledButtonThemeData(
+        style: FilledButton.styleFrom(
+          minimumSize: const Size(48, 48),
+          shape: RoundedRectangleBorder(
+            borderRadius: BorderRadius.circular(14),
+          ),
+        ),
+      ),
+    );
+
+Widget appShell(Widget home) => MaterialApp(
+      title: '每日听写',
+      debugShowCheckedModeBanner: false,
+      locale: const Locale('zh', 'CN'),
+      supportedLocales: const [Locale('zh', 'CN')],
+      localizationsDelegates: GlobalMaterialLocalizations.delegates,
+      theme: buildTheme(),
+      home: home,
+    );
 
 final startup = FutureProvider<Controller>((ref) async {
   final store = await ref.watch(openJournal.future);
@@ -25,43 +77,10 @@ class DictationApp extends ConsumerWidget {
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
+    if (kIsWeb) return const WebApp();
     final boot = ref.watch(startup);
-    final app = MaterialApp(
-      title: '每日听写',
-      debugShowCheckedModeBanner: false,
-      locale: const Locale('zh', 'CN'),
-      supportedLocales: const [Locale('zh', 'CN')],
-      localizationsDelegates: GlobalMaterialLocalizations.delegates,
-      theme: ThemeData(
-        useMaterial3: true,
-        colorScheme: ColorScheme.fromSeed(
-          seedColor: forest,
-          primary: forest,
-          surface: paper,
-        ),
-        scaffoldBackgroundColor: paper,
-        appBarTheme: const AppBarTheme(
-          backgroundColor: paper,
-          foregroundColor: forest,
-        ),
-        navigationBarTheme: const NavigationBarThemeData(
-          backgroundColor: paper,
-          indicatorColor: sage,
-        ),
-        navigationRailTheme: const NavigationRailThemeData(
-          backgroundColor: paper,
-          indicatorColor: sage,
-        ),
-        filledButtonTheme: FilledButtonThemeData(
-          style: FilledButton.styleFrom(
-            minimumSize: const Size(48, 48),
-            shape: RoundedRectangleBorder(
-              borderRadius: BorderRadius.circular(14),
-            ),
-          ),
-        ),
-      ),
-      home: boot.when(
+    final app = appShell(
+      boot.when(
         data: (_) => const Dashboard(),
         loading: () =>
             const Scaffold(body: Center(child: CircularProgressIndicator())),
@@ -150,6 +169,20 @@ class _DashboardState extends ConsumerState<Dashboard> {
             ),
           ],
         ),
+        actions: [
+          if (kIsWeb) ...[
+            IconButton(
+              icon: const Icon(Icons.people_outline),
+              tooltip: '切换孩子',
+              onPressed: () => ref.read(webSessionProvider).backToChildren(),
+            ),
+            IconButton(
+              icon: const Icon(Icons.logout),
+              tooltip: '退出登录',
+              onPressed: () => ref.read(webSessionProvider).signOut(),
+            ),
+          ],
+        ],
       ),
       body: SafeArea(
         top: false,

@@ -10,7 +10,12 @@ abstract interface class Slots {
   Future<void> write(int index, String data);
 }
 
-class JournalStore {
+abstract interface class JournalRepository {
+  Future<Journal?> load();
+  Future<void> save(Journal journal);
+}
+
+class JournalStore implements JournalRepository {
   JournalStore(this.slots);
 
   final Slots slots;

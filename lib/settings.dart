@@ -7,6 +7,9 @@ import 'package:material_ui/material_ui.dart';
 import 'package:share_plus/share_plus.dart';
 
 import 'controller.dart';
+import 'web_bridge_stub.dart'
+    if (dart.library.js_interop) 'web_bridge.dart'
+    as bridge;
 import 'device.dart';
 import 'domain.dart';
 import 'main.dart';
@@ -140,16 +143,17 @@ class _SettingsPageState extends ConsumerState<SettingsPage> {
 
   Future<void> _export(BuildContext anchor, Controller controller) =>
       _run(() async {
-        final box = anchor.findRenderObject()! as RenderBox;
         final filename = '每日听写-${controller.today}.json';
+        final bytes =
+            Uint8List.fromList(utf8.encode(jsonEncode(controller.data)));
+        if (kIsWeb) {
+          bridge.downloadBytes(filename, 'application/json', bytes);
+          return;
+        }
+        final box = anchor.findRenderObject()! as RenderBox;
         await SharePlus.instance.share(
           ShareParams(
-            files: [
-              XFile.fromData(
-                Uint8List.fromList(utf8.encode(jsonEncode(controller.data))),
-                mimeType: 'application/json',
-              ),
-            ],
+            files: [XFile.fromData(bytes, mimeType: 'application/json')],
             fileNameOverrides: [filename],
             sharePositionOrigin: box.localToGlobal(Offset.zero) & box.size,
           ),

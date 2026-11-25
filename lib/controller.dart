@@ -19,14 +19,14 @@ final inkProvider = Provider<DigitalInk>((ref) => DigitalInk());
 class Controller extends ChangeNotifier {
   Controller(this.store, this.data);
 
-  static Future<Controller> load(JournalStore store) async {
+  static Future<Controller> load(JournalRepository store) async {
     final saved = await store.load();
     if (saved != null) return Controller(store, saved);
     final asset = await rootBundle.loadString('assets/demo.json');
     return Controller(store, Journal(Library.fromJson(jsonDecode(asset))));
   }
 
-  final JournalStore store;
+  final JournalRepository store;
   Journal data;
   bool saveFailed = false;
   int _latestSave = 0;

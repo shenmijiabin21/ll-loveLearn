@@ -1,0 +1,23 @@
+# IP 直连测试用 :80。
+# 有域名时：把首行改成 `{$DOMAIN}`（或直接写域名），
+# 并在 .env 设置 DOMAIN=你的域名，Caddy 会自动申请 HTTPS 证书。
+:80 {
+    root * /srv
+    encode gzip
+
+    # 后端 API：/api/* -> 去掉前缀后转发到 api 服务
+    handle /api/* {
+        uri strip_prefix /api
+        reverse_proxy api:8000
+    }
+
+    # 入口与 Service Worker 不缓存，避免升级后浏览器仍在跑旧版本
+    @nocache path / /index.html /flutter_service_worker.js /flutter_bootstrap.js /version.json
+    header @nocache Cache-Control "no-cache, no-store, must-revalidate"
+
+    # Flutter Web 单页应用回退
+    handle {
+        try_files {path} /index.html
+        file_server
+    }
+}

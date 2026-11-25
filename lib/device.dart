@@ -4,6 +4,9 @@ import 'package:google_mlkit_digital_ink_recognition/google_mlkit_digital_ink_re
     as ml;
 
 import 'domain.dart';
+import 'web_bridge_stub.dart'
+    if (dart.library.js_interop) 'web_bridge.dart'
+    as bridge;
 
 bool get hasMobileServices =>
     !kIsWeb &&
@@ -15,6 +18,7 @@ class Speech {
   bool _initialized = false;
 
   Future<bool> play(String text) async {
+    if (kIsWeb) return _playWeb(text);
     if (!hasMobileServices) return false;
     final tts = _tts ??= FlutterTts();
     try {
@@ -53,7 +57,14 @@ class Speech {
     }
   }
 
+  // 网页端必须同步触发浏览器语音：await 会丢掉用户手势，移动端浏览器会静音。
+  Future<bool> _playWeb(String text) async => bridge.speak(text);
+
   Future<void> stop() async {
+    if (kIsWeb) {
+      bridge.stopSpeak();
+      return;
+    }
     try {
       await _tts?.stop();
     } on Exception {
@@ -96,7 +107,11 @@ Grade classify(String expected, List<Candidate> candidates) {
   return (verdict: verdict, candidates: labels);
 }
 
-class DigitalInk {
+abstract interface class Grader {
+  Future<List<Grade>> grade(List<Answer> answers);
+}
+
+class DigitalInk implements Grader {
   static const language = 'zh-Hani-CN';
 
   Future<bool> ready() async =>

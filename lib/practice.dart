@@ -2,6 +2,7 @@ import 'dart:async';
 import 'dart:math' as math;
 import 'dart:ui' show PointMode;
 
+import 'package:flutter/gestures.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:material_ui/material_ui.dart' hide Ink;
 
@@ -9,6 +10,7 @@ import 'controller.dart';
 import 'device.dart';
 import 'domain.dart';
 import 'main.dart';
+import 'remote.dart';
 
 void openPractice(BuildContext context, Practice practice) {
   Navigator.of(context).push(
@@ -86,7 +88,7 @@ class _PracticePageState extends ConsumerState<PracticePage>
         content: Text(
           hasMobileServices
               ? '普通话语音不可用。可在系统中准备语音，或请家长读题。'
-              : '浏览器预览不调用手机语音。可以请家长读题。',
+              : '浏览器语音不可用。请确认系统已安装中文语音，或请家长读题。',
         ),
         action: SnackBarAction(
           label: '家长读题',
@@ -138,14 +140,22 @@ class _PracticePageState extends ConsumerState<PracticePage>
     setState(() => _busy = true);
     await _speech.stop();
     if (!mounted) return;
-    final grades = await ref.read(inkProvider).grade(practice.answers);
-    if (!mounted) return;
-    await _controller.submit(practice, grades);
-    if (!mounted) return;
-    setState(() => _busy = false);
-    Navigator.of(context).pushReplacement(
-      MaterialPageRoute<void>(builder: (_) => ResultPage(practice: practice)),
-    );
+    try {
+      final grades = await ref.read(graderProvider).grade(practice.answers);
+      if (!mounted) return;
+      await _controller.submit(practice, grades);
+      if (!mounted) return;
+      setState(() => _busy = false);
+      Navigator.of(context).pushReplacement(
+        MaterialPageRoute<void>(builder: (_) => ResultPage(practice: practice)),
+      );
+    } catch (error) {
+      if (!mounted) return;
+      setState(() => _busy = false);
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text('批改失败：$error')),
+      );
+    }
   }
 
   @override
@@ -157,164 +167,190 @@ class _PracticePageState extends ConsumerState<PracticePage>
       child: Scaffold(
         appBar: AppBar(title: Text(practice.daily ? '每日一练' : '重点复习')),
         body: SafeArea(
+          // 练习页刻意不使用滚动容器：田字格按剩余高度自适应缩放，
+          // 整页恰好铺满屏幕，书写时不会出现上下滑动。
           child: Column(
             children: [
               const SaveNotice(),
               Expanded(
-                child: PageBody(
-                  children: [
-                    LinearProgressIndicator(
-                      value: (practice.index + 1) / practice.answers.length,
-                      borderRadius: BorderRadius.circular(10),
-                    ),
-                    const SizedBox(height: 14),
-                    SectionTitle(
-                      '第 ${practice.index + 1} 题，共 ${practice.answers.length} 题',
-                      '${answer.question.review ? '复习字' : '新字'} · ${answer.question.lesson}',
-                    ),
-                    LayoutBuilder(
-                      builder: (context, constraints) {
-                        final intro = Column(
-                          crossAxisAlignment: CrossAxisAlignment.start,
-                          children: [
-                            FilledButton.icon(
-                              onPressed: locked ? null : _play,
-                              icon: const Icon(Icons.volume_up_rounded),
-                              label: const Text('播放题目'),
+                child: Center(
+                  child: ConstrainedBox(
+                    constraints: const BoxConstraints(maxWidth: 880),
+                    child: Padding(
+                      padding: const EdgeInsets.fromLTRB(20, 10, 20, 10),
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.stretch,
+                        children: [
+                          LinearProgressIndicator(
+                            value:
+                                (practice.index + 1) /
+                                practice.answers.length,
+                            borderRadius: BorderRadius.circular(10),
+                          ),
+                          const SizedBox(height: 10),
+                          Text(
+                            '第 ${practice.index + 1} 题，共 ${practice.answers.length} 题',
+                            style: const TextStyle(
+                              fontSize: 22,
+                              fontWeight: FontWeight.w800,
+                              color: forest,
                             ),
-                            const SizedBox(height: 10),
-                            const Text(
-                              '听清词语和字的位置，再写进田字格。',
-                              style: TextStyle(color: textMuted),
+                          ),
+                          const SizedBox(height: 2),
+                          Text(
+                            '${answer.question.review ? '复习字' : '新字'} · ${answer.question.lesson}',
+                            style: const TextStyle(
+                              color: textMuted,
+                              fontSize: 12,
                             ),
-                            const SizedBox(height: 14),
+                          ),
+                          const SizedBox(height: 8),
+                          Wrap(
+                            spacing: 8,
+                            runSpacing: 6,
+                            crossAxisAlignment: WrapCrossAlignment.center,
+                            children: [
+                              FilledButton.icon(
+                                onPressed: locked ? null : _play,
+                                icon: const Icon(Icons.volume_up_rounded),
+                                label: const Text('播放题目'),
+                              ),
+                              const Text(
+                                '听清词语，再写进田字格。',
+                                style: TextStyle(
+                                  color: textMuted,
+                                  fontSize: 12,
+                                ),
+                              ),
+                            ],
+                          ),
+                          const SizedBox(height: 6),
+                          Wrap(
+                            spacing: 6,
+                            runSpacing: 6,
+                            children: [
+                              for (
+                                var i = 0;
+                                i < practice.answers.length;
+                                i++
+                              )
+                                ChoiceChip(
+                                  label: Text('${i + 1}'),
+                                  avatar: practice.answers[i].ink.isNotEmpty
+                                      ? const Icon(
+                                          Icons.edit_outlined,
+                                          size: 14,
+                                        )
+                                      : practice.answers[i].skipped
+                                      ? const Icon(Icons.redo, size: 14)
+                                      : null,
+                                  selected: i == practice.index,
+                                  onSelected: locked ? null : (_) => _move(i),
+                                ),
+                            ],
+                          ),
+                          const SizedBox(height: 6),
+                          Expanded(
+                            child: LayoutBuilder(
+                              builder: (context, box) {
+                                final side = math.max(
+                                  120.0,
+                                  math.min(
+                                    390.0,
+                                    math.min(box.maxWidth, box.maxHeight),
+                                  ),
+                                );
+                                return Center(
+                                  child: InkBoard(
+                                    key: ValueKey(practice.index),
+                                    ink: answer.ink,
+                                    enabled: !_busy,
+                                    size: side,
+                                    onStroke: (stroke) {
+                                      answer.ink.add(stroke);
+                                      answer.skipped = false;
+                                      _save();
+                                    },
+                                  ),
+                                );
+                              },
+                            ),
+                          ),
+                          const SizedBox(height: 2),
+                          Wrap(
+                            alignment: WrapAlignment.center,
+                            spacing: 8,
+                            children: [
+                              TextButton.icon(
+                                onPressed: _busy || answer.ink.isEmpty
+                                    ? null
+                                    : () {
+                                        answer.ink.removeLast();
+                                        _save();
+                                      },
+                                icon: const Icon(Icons.undo),
+                                label: const Text('撤销'),
+                              ),
+                              TextButton.icon(
+                                onPressed: _busy || answer.ink.isEmpty
+                                    ? null
+                                    : () {
+                                        answer.ink.clear();
+                                        _save();
+                                      },
+                                icon: const Icon(Icons.delete_outline),
+                                label: const Text('清空'),
+                              ),
+                            ],
+                          ),
+                          if (_busy)
+                            const Center(
+                              child: Padding(
+                                padding: EdgeInsets.symmetric(vertical: 8),
+                                child: Text('正在批改并保存笔迹…'),
+                              ),
+                            )
+                          else
                             Wrap(
-                              spacing: 6,
-                              runSpacing: 6,
+                              spacing: 10,
+                              runSpacing: 8,
+                              alignment: WrapAlignment.end,
                               children: [
-                                for (
-                                  var i = 0;
-                                  i < practice.answers.length;
-                                  i++
-                                )
-                                  ChoiceChip(
-                                    label: Text('${i + 1}'),
-                                    avatar: practice.answers[i].ink.isNotEmpty
-                                        ? const Icon(
-                                            Icons.edit_outlined,
-                                            size: 14,
-                                          )
-                                        : practice.answers[i].skipped
-                                        ? const Icon(Icons.redo, size: 14)
-                                        : null,
-                                    selected: i == practice.index,
-                                    onSelected: locked ? null : (_) => _move(i),
+                                if (practice.index > 0)
+                                  OutlinedButton(
+                                    onPressed: locked
+                                        ? null
+                                        : () => _move(practice.index - 1),
+                                    child: const Text('上一题'),
+                                  ),
+                                if (!last)
+                                  TextButton(
+                                    onPressed: locked
+                                        ? null
+                                        : () => _move(
+                                            practice.index + 1,
+                                            skip: true,
+                                          ),
+                                    child: const Text('跳过'),
+                                  ),
+                                if (last)
+                                  FilledButton(
+                                    onPressed: locked ? null : _submit,
+                                    child: const Text('提交批改'),
+                                  )
+                                else
+                                  FilledButton(
+                                    onPressed: locked
+                                        ? null
+                                        : () => _move(practice.index + 1),
+                                    child: const Text('下一题'),
                                   ),
                               ],
                             ),
-                          ],
-                        );
-                        final grid = Column(
-                          children: [
-                            InkBoard(
-                              key: ValueKey(practice.index),
-                              ink: answer.ink,
-                              enabled: !_busy,
-                              size: math.min(390.0, constraints.maxWidth),
-                              onStroke: (stroke) {
-                                answer.ink.add(stroke);
-                                answer.skipped = false;
-                                _save();
-                              },
-                            ),
-                            const SizedBox(height: 10),
-                            Wrap(
-                              alignment: WrapAlignment.center,
-                              spacing: 8,
-                              children: [
-                                TextButton.icon(
-                                  onPressed: _busy || answer.ink.isEmpty
-                                      ? null
-                                      : () {
-                                          answer.ink.removeLast();
-                                          _save();
-                                        },
-                                  icon: const Icon(Icons.undo),
-                                  label: const Text('撤销'),
-                                ),
-                                TextButton.icon(
-                                  onPressed: _busy || answer.ink.isEmpty
-                                      ? null
-                                      : () {
-                                          answer.ink.clear();
-                                          _save();
-                                        },
-                                  icon: const Icon(Icons.delete_outline),
-                                  label: const Text('清空'),
-                                ),
-                              ],
-                            ),
-                          ],
-                        );
-                        if (constraints.maxWidth >= 670) {
-                          return Row(
-                            crossAxisAlignment: CrossAxisAlignment.start,
-                            children: [
-                              Expanded(child: intro),
-                              const SizedBox(width: 26),
-                              grid,
-                            ],
-                          );
-                        }
-                        return Column(
-                          crossAxisAlignment: CrossAxisAlignment.stretch,
-                          children: [intro, const SizedBox(height: 18), grid],
-                        );
-                      },
-                    ),
-                    const SizedBox(height: 14),
-                    if (_busy)
-                      const Center(
-                        child: Padding(
-                          padding: EdgeInsets.all(14),
-                          child: Text('正在批改并保存笔迹…'),
-                        ),
-                      )
-                    else
-                      Wrap(
-                        spacing: 10,
-                        runSpacing: 8,
-                        alignment: WrapAlignment.end,
-                        children: [
-                          if (practice.index > 0)
-                            OutlinedButton(
-                              onPressed: locked
-                                  ? null
-                                  : () => _move(practice.index - 1),
-                              child: const Text('上一题'),
-                            ),
-                          if (!last)
-                            TextButton(
-                              onPressed: locked
-                                  ? null
-                                  : () => _move(practice.index + 1, skip: true),
-                              child: const Text('跳过'),
-                            ),
-                          if (last)
-                            FilledButton(
-                              onPressed: locked ? null : _submit,
-                              child: const Text('提交批改'),
-                            )
-                          else
-                            FilledButton(
-                              onPressed: locked
-                                  ? null
-                                  : () => _move(practice.index + 1),
-                              child: const Text('下一题'),
-                            ),
                         ],
                       ),
-                  ],
+                    ),
+                  ),
                 ),
               ),
             ],
@@ -371,8 +407,17 @@ class _InkBoardState extends State<InkBoard> {
   @override
   Widget build(BuildContext context) => Semantics(
     label: widget.enabled ? '田字格手写区' : '提交的原笔迹',
-    child: GestureDetector(
-      onPanUpdate: widget.enabled ? (_) {} : null,
+    child: RawGestureDetector(
+      // 指针一落下就抢占手势：父级 ListView 永远收不到拖动，
+      // 否则写字时整页会跟着上下滑动。
+      gestures: widget.enabled
+          ? <Type, GestureRecognizerFactory>{
+              _EagerPanGestureRecognizer:
+                  GestureRecognizerFactoryWithHandlers<
+                    _EagerPanGestureRecognizer
+                  >(_EagerPanGestureRecognizer.new, (_) {}),
+            }
+          : const <Type, GestureRecognizerFactory>{},
       child: Listener(
         behavior: HitTestBehavior.opaque,
         onPointerDown: (event) {
@@ -402,6 +447,16 @@ class _InkBoardState extends State<InkBoard> {
       ),
     ),
   );
+}
+
+/// 一接触就宣告胜利的手势识别器：用于独占田字格的拖动，
+/// 避免外层可滚动列表把书写手势当成滚动。
+class _EagerPanGestureRecognizer extends PanGestureRecognizer {
+  @override
+  void addAllowedPointer(PointerDownEvent event) {
+    super.addAllowedPointer(event);
+    resolve(GestureDisposition.accepted);
+  }
 }
 
 class _GridPainter extends CustomPainter {
