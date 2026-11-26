@@ -19,6 +19,17 @@ final webSessionProvider = ChangeNotifierProvider<WebSession>((ref) {
 /// 登录后的界面状态
 enum WebScreen { login, admin, parentList, parentDetail, practice }
 
+/// 在线状态的判重签名：只有它变了，家长页才需要重绘。
+///
+/// 必须覆盖界面真正显示的每个字段，否则会出现「接口变了、界面不重绘」。
+/// 用 activeSeconds 而不是 onlineSeconds——后者是「距上次心跳多少秒」，
+/// 每次心跳都归零，既不反映练习时长，也不能用来判重。
+String presenceSignature(Map<String, ChildPresence> presences) => [
+  for (final entry in presences.entries)
+    '${entry.key}:${entry.value.state}:${entry.value.activeSeconds}'
+        ':${entry.value.awayCount}:${entry.value.awaySeconds}',
+].join('|');
+
 class WebSession extends ChangeNotifier {
   ApiClient? _api;
   UserInfo? me;
@@ -184,16 +195,11 @@ class WebSession extends ChangeNotifier {
   /// 也不该在失败时覆盖用户正在看的错误提示。
   Future<void> refreshPresence() async {
     if (_api == null || busy) return;
-    // 只有状态或时长真的变了才重建：否则每 30 秒整页重绘一次毫无意义
-    final before = _presenceSignature();
+    // 只有状态或时长真的变了才重建，避免无意义的重绘
+    final before = presenceSignature(presences);
     await _loadPresences();
-    if (before != _presenceSignature()) notifyListeners();
+    if (before != presenceSignature(presences)) notifyListeners();
   }
-
-  String _presenceSignature() => [
-    for (final entry in presences.entries)
-      '${entry.key}:${entry.value.state}:${entry.value.onlineSeconds}',
-  ].join('|');
 
   // —— 管理员操作 ——
   Future<void> refreshParents() => _guarded(() async {
@@ -541,9 +547,10 @@ class _ParentScreenState extends ConsumerState<ParentScreen> {
   @override
   void initState() {
     super.initState();
-    // 在线状态每 30 秒刷新一次就够：没必要为「孩子此刻在不在」上实时推送，
-    // 服务端的离线判定本身就要等 90 秒心跳超时。
-    _poll = Timer.periodic(const Duration(seconds: 30), (_) {
+    // 5 秒刷新一次：孩子端每 30 秒上报一次心跳，但家长看到的是「已练 N 分钟」，
+    // 刷新太慢会让数字长时间不动，看起来像卡住了。5 秒足够灵敏，
+    // 单次请求只是一个孩子一行的小 JSON，开销可以忽略。
+    _poll = Timer.periodic(const Duration(seconds: 5), (_) {
       if (mounted) ref.read(webSessionProvider).refreshPresence();
     });
   }
