@@ -96,14 +96,14 @@ class _MathStepPageState extends State<MathStepPage> {
     setState(() {
       _verdicts = verdicts;
       _checked = true;
+      // 聚焦第一个出错的格子，孩子不用自己找哪里错了。
+      // _selectSlot 会先 commit 当前格，所以必须放在 _verdicts 赋值之后，
+      // 否则刚写回的文本会被覆盖。
+      if (failed.isNotEmpty) {
+        _selectSlot(step.slots.indexOf(failed.first));
+      }
     });
-    // 聚焦第一个出错的格子，孩子不用自己找哪里错了。
-    // 必须在 setState 之外切换，否则刚写回的文本会被这次切格覆盖。
-    if (failed.isNotEmpty) {
-      setState(() => _selectSlot(step.slots.indexOf(failed.first)));
-    } else if (!_isLast) {
-      _scheduleAdvance();
-    }
+    if (failed.isEmpty && !_isLast) _scheduleAdvance();
   }
 
   void _scheduleAdvance() {
@@ -301,23 +301,26 @@ class _MathStepPageState extends State<MathStepPage> {
   Widget _slotRow(MathSlot slot) {
     final index = step.slots.indexOf(slot);
     final focused = _focus == index;
-    return Padding(
-      padding: const EdgeInsets.symmetric(vertical: 6),
-      child: Row(
-        children: [
-          SizedBox(
-            width: 110,
-            child: Text(
-              slot.label,
-              style: const TextStyle(
-                fontWeight: FontWeight.w700,
-                color: forest,
+    final value = _valueOf(step, slot.id);
+    // 整行可点：格子本身不大，点标签更容易命中
+    return InkWell(
+      onTap: () => _selectSlotByTap(index),
+      borderRadius: BorderRadius.circular(10),
+      child: Padding(
+        padding: const EdgeInsets.symmetric(vertical: 6),
+        child: Row(
+          children: [
+            SizedBox(
+              width: 110,
+              child: Text(
+                slot.label,
+                style: const TextStyle(
+                  fontWeight: FontWeight.w700,
+                  color: forest,
+                ),
               ),
             ),
-          ),
-          GestureDetector(
-            onTap: () => _selectSlotByTap(index),
-            child: Container(
+            Container(
               constraints: BoxConstraints(minWidth: 26.0 * slot.width + 28),
               padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
               decoration: BoxDecoration(
@@ -329,7 +332,7 @@ class _MathStepPageState extends State<MathStepPage> {
                 ),
               ),
               child: Text(
-                _valueOf(step, slot.id).isEmpty ? '　' : _valueOf(step, slot.id),
+                value.isEmpty ? '　' : value,
                 style: const TextStyle(
                   fontSize: 24,
                   fontWeight: FontWeight.w800,
@@ -338,13 +341,16 @@ class _MathStepPageState extends State<MathStepPage> {
                 ),
               ),
             ),
-          ),
-          if (slot.optional)
-            const Padding(
-              padding: EdgeInsets.only(left: 8),
-              child: Text('可留空', style: TextStyle(color: textMuted, fontSize: 11)),
-            ),
-        ],
+            if (slot.optional)
+              const Padding(
+                padding: EdgeInsets.only(left: 8),
+                child: Text(
+                  '可留空',
+                  style: TextStyle(color: textMuted, fontSize: 11),
+                ),
+              ),
+          ],
+        ),
       ),
     );
   }
