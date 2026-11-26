@@ -12,7 +12,6 @@ import 'device.dart';
 import 'domain.dart';
 import 'main.dart';
 import 'remote.dart';
-import 'theme.dart';
 
 Color _frameColor(Verdict? verdict) => switch (verdict) {
   Verdict.correct => verdictOk,
