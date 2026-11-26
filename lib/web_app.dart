@@ -566,10 +566,16 @@ class _ParentScreenState extends ConsumerState<ParentScreen>
   /// 5 秒刷新一次：孩子端每 30 秒上报一次心跳，但家长看到的是「已练 N 分钟」，
   /// 刷新太慢会让数字长时间不动，看起来像卡住了。5 秒足够灵敏，
   /// 单次请求只是一个孩子一行的小 JSON，开销可以忽略。
+  ///
+  /// 只在列表页轮询：WebApp 在 parentDetail 未就绪时会回落到 ParentScreen，
+  /// 同一个 State 会被复用，不加判断的话进了详情页还在轮询列表数据。
   void _startPolling() {
     _poll?.cancel();
     _poll = Timer.periodic(const Duration(seconds: 5), (_) {
-      if (mounted) ref.read(webSessionProvider).refreshPresence();
+      if (!mounted) return;
+      final session = ref.read(webSessionProvider);
+      if (session.screen != WebScreen.parentList) return;
+      session.refreshPresence();
     });
   }
 
