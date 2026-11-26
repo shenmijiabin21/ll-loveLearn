@@ -59,7 +59,10 @@ void main() {
 
     await tester.tap(find.widgetWithText(ChoiceChip, '5'));
     await tester.pumpAndSettle();
-    await tester.tap(find.text('提交批改'));
+    // 限定到页面按钮：确认弹窗里的 FilledButton 文案相同，
+    // 裸 find.text 在弹窗出现后会产生多匹配。
+    expect(find.byType(AlertDialog), findsNothing);
+    await tester.tap(find.widgetWithText(FilledButton, '提交批改'));
     await tester.pumpAndSettle();
     await tester.tap(
       find.descendant(
