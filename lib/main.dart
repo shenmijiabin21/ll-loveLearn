@@ -27,13 +27,14 @@ void main() {
   runApp(const ProviderScope(child: DictationApp()));
 }
 
-Widget appShell(Widget home) => MaterialApp(
+Widget appShell(Widget home, {TransitionBuilder? builder}) => MaterialApp(
       title: '每日听写',
       debugShowCheckedModeBanner: false,
       locale: const Locale('zh', 'CN'),
       supportedLocales: const [Locale('zh', 'CN')],
       localizationsDelegates: GlobalMaterialLocalizations.delegates,
       theme: buildTheme(),
+      builder: builder,
       home: home,
     );
 
@@ -146,12 +147,18 @@ class _DashboardState extends ConsumerState<Dashboard> {
           ],
         ),
         actions: [
-          if (kIsWeb)
+          if (kIsWeb) ...[
+            IconButton(
+              icon: const Icon(Icons.password_rounded),
+              tooltip: '修改密码',
+              onPressed: () => showChangePasswordDialog(context, ref),
+            ),
             IconButton(
               icon: const Icon(Icons.logout),
               tooltip: '退出登录',
               onPressed: () => ref.read(webSessionProvider).signOut(),
             ),
+          ],
         ],
       ),
       body: SafeArea(

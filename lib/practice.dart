@@ -61,7 +61,8 @@ class _PracticePageState extends ConsumerState<PracticePage>
   @override
   void didChangeAppLifecycleState(AppLifecycleState state) {
     if (state != AppLifecycleState.resumed && !practice.submitted) {
-      unawaited(_controller.persist());
+      // 切后台/关标签页时绕过合并窗口，立即写出
+      unawaited(_controller.persist().then((_) => _controller.flush()));
     }
   }
 
@@ -69,12 +70,19 @@ class _PracticePageState extends ConsumerState<PracticePage>
   void dispose() {
     WidgetsBinding.instance.removeObserver(this);
     unawaited(_speech.stop());
+    if (!practice.submitted) {
+      // 离开页面：先落数据再穿透合并窗口。persist 自身不抛，
+      // flush 失败只会让 SaveNotice 显示「尚未保存」
+      unawaited(_controller.persist().then((_) => _controller.flush()));
+    }
     super.dispose();
   }
 
   void _save() {
     setState(() {});
-    unawaited(_controller.persist());
+    // persist 只把最新快照交给仓库并立即返回；flush 把等待它的 future
+    // 正常结束掉，避免未处理的异步错误
+    unawaited(_controller.persist().then((_) => _controller.flush()));
   }
 
   void _move(int index, {bool skip = false}) {
@@ -150,6 +158,8 @@ class _PracticePageState extends ConsumerState<PracticePage>
     await _speech.stop();
     if (!mounted) return;
     try {
+      // 先确保该组最后一笔已经落盘，再进入批改
+      await _controller.flush();
       final grades = await ref.read(graderProvider).grade(practice.answers);
       if (!mounted) return;
       await _controller.submit(practice, grades);
@@ -532,7 +542,20 @@ class _GridPainter extends CustomPainter {
   }
 
   @override
-  bool shouldRepaint(_GridPainter oldDelegate) => true;
+  bool shouldRepaint(_GridPainter oldDelegate) {
+    if (oldDelegate.strokes.length != strokes.length) return true;
+    for (var i = 0; i < strokes.length; i++) {
+      final a = oldDelegate.strokes[i];
+      final b = strokes[i];
+      if (a.length != b.length) return true;
+      if (a.isNotEmpty) {
+        final pa = a.last;
+        final pb = b.last;
+        if (pa.x != pb.x || pa.y != pb.y) return true;
+      }
+    }
+    return false;
+  }
 }
 
 class ResultPage extends ConsumerWidget {

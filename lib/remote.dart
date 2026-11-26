@@ -1,3 +1,4 @@
+import 'dart:async';
 import 'dart:convert';
 
 import 'package:flutter/foundation.dart';
@@ -33,20 +34,32 @@ class ApiClient {
 
   Uri _uri(String path) => Uri.parse('$apiBase$path');
 
-  Future<dynamic> _send(String method, String path, {Object? body}) async {
+  /// 默认超时。识别接口冷启动（首次加载模型）较慢，单独给更长的时限。
+  static const _defaultTimeout = Duration(seconds: 20);
+  static const _gradeTimeout = Duration(seconds: 90);
+
+  Future<dynamic> _send(
+    String method,
+    String path, {
+    Object? body,
+    Duration? timeout,
+  }) async {
     final uri = _uri(path);
     final headers = _headers;
+    final limit = timeout ?? _defaultTimeout;
     http.Response resp;
     try {
-      resp = switch (method) {
-        'GET' => await http.get(uri, headers: headers),
-        'POST' => await http.post(uri, headers: headers, body: jsonEncode(body)),
-        'PUT' => await http.put(uri, headers: headers, body: jsonEncode(body)),
-        'PATCH' =>
-          await http.patch(uri, headers: headers, body: jsonEncode(body)),
-        'DELETE' => await http.delete(uri, headers: headers),
+      final call = switch (method) {
+        'GET' => http.get(uri, headers: headers),
+        'POST' => http.post(uri, headers: headers, body: jsonEncode(body)),
+        'PUT' => http.put(uri, headers: headers, body: jsonEncode(body)),
+        'PATCH' => http.patch(uri, headers: headers, body: jsonEncode(body)),
+        'DELETE' => http.delete(uri, headers: headers),
         _ => throw UnsupportedError(method),
       };
+      resp = await call.timeout(limit);
+    } on TimeoutException {
+      throw ApiException(0, '请求超时，请检查网络后重试');
     } on Exception {
       throw ApiException(0, '网络不可用，请检查连接');
     }
@@ -67,8 +80,11 @@ class ApiClient {
   }
 
   Future<dynamic> get(String path) => _send('GET', path);
-  Future<dynamic> post(String path, Object body) =>
-      _send('POST', path, body: body);
+  Future<dynamic> post(
+    String path,
+    Object body, {
+    Duration? timeout,
+  }) => _send('POST', path, body: body, timeout: timeout);
   Future<dynamic> put(String path, Object body) => _send('PUT', path, body: body);
   Future<dynamic> patch(String path, Object body) =>
       _send('PATCH', path, body: body);
@@ -121,12 +137,34 @@ class ApiClient {
     });
   }
 
+  /// 给已有孩子档案补绑学生账号，保留其历史记录
+  Future<void> bindStudent({
+    required String childId,
+    required String username,
+    required String password,
+    required String displayName,
+  }) async {
+    await post('/admin/children/$childId/student', {
+      'username': username,
+      'password': password,
+      'display_name': displayName,
+    });
+  }
+
   Future<ChildSummary> childSummary(String childId) async =>
       ChildSummary.fromJson(await get('/children/$childId/summary'));
 
   /// scope: today（只清今天，可重练）/ all（清空全部）
-  Future<void> resetChild(String childId, {String scope = 'today'}) async {
-    await post('/children/$childId/reset', {'scope': scope});
+  /// date 传客户端本地日期，避免服务器时区与本机不一致时清错日子
+  Future<void> resetChild(
+    String childId, {
+    String scope = 'today',
+    String? date,
+  }) async {
+    await post('/children/$childId/reset', {
+      'scope': scope,
+      if (date != null) 'date': date,
+    });
   }
 
   Future<ChildInfo> createChild(String parentId, String name) async {
@@ -135,6 +173,18 @@ class ApiClient {
       'name': name,
     });
     return ChildInfo.fromJson(json);
+  }
+
+  /// 修改密码；服务端会让其它设备的旧令牌失效，返回当前会话的新令牌
+  Future<AuthResult> changePassword(
+    String currentPassword,
+    String newPassword,
+  ) async {
+    final json = await post('/auth/password', {
+      'current_password': currentPassword,
+      'new_password': newPassword,
+    });
+    return AuthResult.fromJson(json);
   }
 }
 
@@ -320,7 +370,12 @@ class RemoteJournalStore implements JournalRepository {
   // 串行化 + 合并：每写一笔都会触发保存，若并发 PUT 会因 revision 撞车返回 409。
   // 这里保证同一时刻只有一个写入在飞，多余的请求合并成一次，且始终写最新数据。
   Future<void> _chain = Future<void>.value();
-  bool _queued = false;
+  // 一笔一存太费流量：合并窗口内的多次保存只发一次最新快照。
+  // 定时器只在第一笔时启动（不随每次写入重置），持续书写时也保证按月落盘。
+  static const _coalesce = Duration(milliseconds: 800);
+  Journal? _pending;
+  Timer? _timer;
+  Completer<void>? _settle;
 
   @override
   Future<Journal?> load() async {
@@ -361,14 +416,42 @@ class RemoteJournalStore implements JournalRepository {
 
   @override
   Future<void> save(Journal journal) {
-    if (_queued) return _chain;
-    _queued = true;
-    final task = _chain.then((_) async {
-      _queued = false;
-      await _write(journal);
-    });
+    // 只记录最新快照，由一个定时器统一发出
+    _pending = journal;
+    _settle ??= Completer<void>();
+    _timer ??= Timer(_coalesce, _flush);
+    return _settle!.future;
+  }
+
+  Future<void> _flush() async {
+    _timer?.cancel();
+    _timer = null;
+    final journal = _pending;
+    final settle = _settle;
+    _pending = null;
+    _settle = null;
+    if (journal == null) {
+      settle?.complete();
+      return;
+    }
+    // 写入仍串行：同一时刻只允许一个 PUT 在飞
+    final task = _chain.then((_) => _write(journal));
     _chain = task.then<void>((_) {}, onError: (Object _, StackTrace __) {});
-    return task;
+    try {
+      await task;
+      settle?.complete();
+    } catch (error, stack) {
+      settle?.completeError(error, stack);
+    }
+  }
+
+  /// 立即写出尚未落盘的修改（提交/离开页面前调用，避免丢失最后一次输入）
+  @override
+  Future<void> flush() async {
+    if (_timer == null && _pending == null) return;
+    _timer?.cancel();
+    _timer = null;
+    await _flush();
   }
 }
 
@@ -392,9 +475,18 @@ class WebGrader implements Grader {
             ],
           },
       ];
-      // 不限制候选字范围：识别到什么就展示什么
-      final result = (await api.post('/grade', {'items': items}) as List)
-          .cast<Map<String, dynamic>>();
+      // allowed 只用于把「待确认」升级成「正确」，开集结果不受影响
+      final allowed = {
+        for (final answer in answers) answer.question.prompt.character,
+      }.take(60).toList();
+      final result =
+          (await api.post(
+                    '/grade',
+                    {'items': items, 'allowed': allowed},
+                    timeout: ApiClient._gradeTimeout,
+                  )
+                  as List)
+              .cast<Map<String, dynamic>>();
       return [
         for (final item in result)
           (

@@ -1,3 +1,4 @@
+import uuid
 from datetime import date
 from typing import Any, Optional
 
@@ -186,7 +187,9 @@ async def reset_child(
 
     payload = dict(journal.payload) if isinstance(journal.payload, dict) else {}
     history = payload.get("history")
-    today = _today()
+    # 优先用客户端本地日期：服务器时区与用户所在时区不一致时，
+    # 按服务端日期会清错一天（例如北京时间 08:00 前服务器仍是前一天）。
+    today = body.date or _today()
     if isinstance(history, list):
         payload["history"] = [
             item

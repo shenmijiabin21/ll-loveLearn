@@ -5,5 +5,5 @@ RUN set -eux; \
     sed -i 's|http://deb.debian.org|http://mirrors.tuna.tsinghua.edu.cn|g' /etc/apt/sources.list.d/debian.sources 2>/dev/null || true; \
     printf '[global]\nindex-url = https://pypi.tuna.tsinghua.edu.cn/simple\n[install]\ntrusted-host = pypi.tuna.tsinghua.edu.cn\n' > /etc/pip.conf; \
     apt-get update; \
-    apt-get install -y --no-install-recommends libgomp1 libgl1 libglib2.0-0; \
+    apt-get install -y --no-install-recommends libgomp1 libgl1 libglib2.0-0 tzdata; \
     rm -rf /var/lib/apt/lists/*

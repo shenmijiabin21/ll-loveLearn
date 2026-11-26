@@ -24,13 +24,26 @@ flutter build web --release --no-pub
 ```
 # 服务器域名；留空或 localhost 则只开 HTTP
 DOMAIN=dictation.example.com
-# JWT 密钥，务必改成长随机字符串
-JWT_SECRET=改成一个长随机串
+# JWT 密钥：留空则首次启动自动生成并写入容器内 .jwt_secret。
+# 多实例部署必须显式配置同一个值。
+JWT_SECRET=
+# 容器时区，影响「重练今天」按哪一天清理
+TZ=Asia/Shanghai
 # 识别阈值，可后调
 MIN_CONF=0.6
 # 判定模式：conservative（只自动判正确，推荐）/ standard
 VERDICT_MODE=conservative
+# 内置管理员。ADMIN_PASSWORD 留空则随机生成并打印到 api 启动日志，
+# 首次登录后请在网页右上角「修改密码」中替换。
+ADMIN_USERNAME=admin
+ADMIN_PASSWORD=
 ```
+
+> 首次启动查看自动生成的管理员口令：
+>
+> ```sh
+> docker compose logs api | grep 初始密码
+> ```
 
 ## 三、启动
 > 首次部署必须先构建基础镜像 `ll-base`（apt/pip 已内置国内镜像源），
@@ -71,8 +84,9 @@ docker compose exec -T db psql -U dictation dictation < backup.sql
 - 同一笔迹会渲染两套（原图 + 轻微高斯模糊）取最高置信度，提升稳定性。
 - **识别模型用 PP-OCRv5（mobile）**，构建镜像时自动下载并替换包内自带的 v4。实测同一批真实笔迹：
   v4 对形变较大的字输出均匀分布（判不出），v5 能稳定识别且候选领先幅度明显。
-- 前端会带上本次练习涉及的字（`allowed`）做**候选字约束解码**，只在几个字之间比较，
-  判别力显著高于在 1.8 万字里开集检索。
+- 前端会带上本次练习涉及的字（`allowed`）。它只在开集识别给出「待确认」时做一次
+  **受限重判**：在本次练习的字里比较，目标字排第一则升级为「正确」；开集已判出的
+  结果不会因此变成「错字」，所以不会增加误判。
 - 实测（真实学生笔迹）：v5 下正确字置信度约 0.38–0.40、领先幅度 0.22–0.25；`MIN_CONF` 默认 0.5（作用于回退的开集识别）。
 - 默认 `VERDICT_MODE=conservative`：只在置信度达标且识别结果与目标字一致时判「正确」，其余一律「待确认」，杜绝误判；家长订正兜底。
   想看自动判「错字」，把 `VERDICT_MODE=standard`（错字阈值 `min_conf_wrong=0.75`，需按自己孩子的笔迹复核）。

@@ -1,16 +1,30 @@
+import json
 import uuid
 from datetime import datetime
 from typing import Any, Literal, Optional
 
-from pydantic import BaseModel, Field
+from pydantic import BaseModel, Field, field_validator
 
 # 用户名：仅英文和数字
 USERNAME_PATTERN = r"^[a-zA-Z0-9]{1,32}$"
+
+# 单个孩子的练习记录上限（明文 JSON 大致 16MB）。客户端每笔迹一点约 30 字节，
+# 128 笔 × 4096 点的极端情况下才会接近，正常练习远低于此值。
+MAX_PAYLOAD_BYTES = 16 * 1024 * 1024
 
 
 class LoginIn(BaseModel):
     account: str = Field(min_length=1, max_length=32)
     password: str
+
+
+class ChangePasswordIn(BaseModel):
+    current_password: str
+    new_password: str = Field(min_length=8, max_length=72)
+
+
+class MessageOut(BaseModel):
+    message: str
 
 
 class UserOut(BaseModel):
@@ -90,6 +104,8 @@ class AdminUserOut(BaseModel):
 
 class ResetIn(BaseModel):
     scope: Literal["today", "all"]
+    # 客户端本地日期（YYYY-MM-DD）；缺省时按服务端日期处理
+    date: Optional[str] = Field(default=None, pattern=r"^\d{4}-\d{2}-\d{2}$")
 
 
 class ResetOut(BaseModel):
@@ -121,6 +137,17 @@ class ChildSummaryOut(BaseModel):
 class JournalPut(BaseModel):
     revision: Optional[int] = None
     payload: dict[str, Any]
+
+    @field_validator("payload")
+    @classmethod
+    def _limit_payload(cls, value: dict[str, Any]) -> dict[str, Any]:
+        """单行 JSONB 全量重写，必须在入口挡住异常大的请求体。"""
+        size = len(json.dumps(value, ensure_ascii=False))
+        if size > MAX_PAYLOAD_BYTES:
+            raise ValueError(
+                f"练习记录过大（{size} 字节，上限 {MAX_PAYLOAD_BYTES}）"
+            )
+        return value
 
 
 class JournalOut(BaseModel):

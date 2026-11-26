@@ -13,6 +13,9 @@ abstract interface class Slots {
 abstract interface class JournalRepository {
   Future<Journal?> load();
   Future<void> save(Journal journal);
+
+  /// 把仍在合并窗口中的修改立即写出；没有待写内容时直接返回
+  Future<void> flush() async {}
 }
 
 class JournalStore implements JournalRepository {
@@ -25,6 +28,11 @@ class JournalStore implements JournalRepository {
   static Future<JournalStore> open() async =>
       JournalStore(await platform.openSlots());
 
+  // 本地版每次 save 都直接写，没有合并窗口，flush 无需额外动作
+  @override
+  Future<void> flush() async {}
+
+  @override
   Future<Journal?> load() async {
     Journal? result;
     var found = false;
@@ -50,6 +58,7 @@ class JournalStore implements JournalRepository {
     return result;
   }
 
+  @override
   Future<void> save(Journal journal) {
     final snapshot = jsonEncode(journal);
     final write = _writes.then((_) async {
