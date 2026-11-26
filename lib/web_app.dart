@@ -340,6 +340,7 @@ Future<void> showChangePasswordDialog(BuildContext context, WidgetRef ref) async
     ),
   );
   if (ok != true) return;
+  if (!context.mounted) return;
   final messenger = ScaffoldMessenger.of(context);
   if (next.text.length < 8) {
     messenger.showSnackBar(const SnackBar(content: Text('新密码至少 8 位')));
