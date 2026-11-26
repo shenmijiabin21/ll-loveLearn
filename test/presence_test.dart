@@ -130,6 +130,46 @@ void main() {
     failing.stop();
   });
 
+  group('家长端展示', () {
+    ChildPresence make({
+      String state = 'practicing',
+      int? onlineSeconds = 0,
+      int activeSeconds = 0,
+    }) => ChildPresence(
+      childId: 'c1',
+      state: state,
+      onlineSeconds: onlineSeconds,
+      activeSeconds: activeSeconds,
+    );
+
+    test('时长取累计活跃时间，而不是距上次心跳', () {
+      // online_seconds 是「距上次心跳多少秒」，刚上报时恒为 0；
+      // 用它当时长会永远显示「已 0 分钟」且不增长。
+      final p = make(onlineSeconds: 0, activeSeconds: 12 * 60);
+      expect(p.label, contains('12 分钟'));
+    });
+
+    test('不足一分钟不显示时长', () {
+      final p = make(onlineSeconds: 0, activeSeconds: 30);
+      expect(p.label, '正在练习');
+    });
+
+    test('离开与发呆也带上累计时长', () {
+      expect(
+        make(state: 'away', activeSeconds: 5 * 60).label,
+        contains('5 分钟'),
+      );
+      expect(
+        make(state: 'idle', activeSeconds: 8 * 60).label,
+        contains('8 分钟'),
+      );
+    });
+
+    test('离线只显示不在页面', () {
+      expect(make(state: 'offline', activeSeconds: 99 * 60).label, '不在页面');
+    });
+  });
+
   test('stop 之后不再上报', () async {
     presence.start('p1');
     await Future<void>.delayed(Duration.zero);

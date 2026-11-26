@@ -438,16 +438,20 @@ class ChildPresence {
 
   bool get isPracticing => state == 'practicing';
 
-  /// 家长端一句话状态
+  /// 家长端一句话状态。
+  ///
+  /// 这里只能用 [activeSeconds]（本次练习累计活跃时长），不能用
+  /// [onlineSeconds]——后者是「距上次心跳多少秒」，永远在 0 附近打转，
+  /// 拿来当时长会一直显示「已 0 分钟」且永远不增长。
   String get label => switch (state) {
-    'practicing' => '正在练习${_short(onlineSeconds)}',
-    'idle' => '开着页面但没在写',
-    'away' => '已离开页面',
+    'practicing' => '正在练习${_minutes(activeSeconds)}',
+    'idle' => '开着页面但没在写${_minutes(activeSeconds)}',
+    'away' => '已离开页面${_minutes(activeSeconds)}',
     _ => '不在页面',
   };
 
-  static String _short(int? seconds) {
-    if (seconds == null || seconds < 60) return '';
+  static String _minutes(int seconds) {
+    if (seconds < 60) return '';
     return ' · 已 ${seconds ~/ 60} 分钟';
   }
 }
