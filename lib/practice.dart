@@ -70,11 +70,10 @@ class _PracticePageState extends ConsumerState<PracticePage>
   void dispose() {
     WidgetsBinding.instance.removeObserver(this);
     unawaited(_speech.stop());
-    if (!practice.submitted) {
-      // 离开页面：先落数据再穿透合并窗口。persist 自身不抛，
-      // flush 失败只会让 SaveNotice 显示「尚未保存」
-      unawaited(_controller.persist().then((_) => _controller.flush()));
-    }
+    // 这里不能 persist()：dispose 期间 notifyListeners 会触发
+    // "Tried to modify a provider while the widget tree was building"。
+    // 笔迹在每次落笔时已经 save 过，只需穿透合并窗口把待写内容写出。
+    if (!practice.submitted) unawaited(_controller.flush());
     super.dispose();
   }
 
