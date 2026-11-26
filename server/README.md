@@ -35,6 +35,24 @@ uvicorn app.main:app --reload
 - `POST /children/{id}/reset` —— `scope=today|all`，可带客户端本地 `date`
 - `GET/PUT /children/{id}/journal` —— JSONB + revision 乐观锁，单条上限 16MB
 
+在线状态（孩子是否正在练习）：
+
+- `POST /children/{id}/presence` —— 孩子端心跳，每 30 秒一次
+- `GET  /children/{id}/presence` —— 单个孩子今天的状态
+- `GET  /children/presence` —— 家长列表页一次取全
+
+状态由服务端按时间差推导（`app/presence.py`），不采信客户端自报：
+
+| 状态 | 条件 |
+| --- | --- |
+| `offline` | 最后心跳距今 > 90 秒（关页面、断网、强杀都会落到这里） |
+| `away` | 页面不可见（切标签页 / 窗口失焦），且心跳仍在 |
+| `idle` | 页面可见但 > 180 秒没落笔 |
+| `practicing` | 其余情况 |
+
+客户端只上报素材：可见性、距上次落笔多少秒、落笔数、离开次数与时长。
+用「距上次落笔的秒数」而不是布尔值，否则写过一笔后停笔会被一直算作在练习。
+
 管理端（需 admin）：
 
 - `GET  /admin/users` —— 家长列表及其孩子
@@ -56,6 +74,8 @@ users    (id, email, username, password_hash, display_name, is_admin,
           token_version, role, parent_id, created_at)
 children (id, user_id, student_user_id, name, created_at)
 journals (child_id, revision, payload jsonb, updated_at)
+presence (child_id, day, practice_id, last_seen_at, last_stroke_at, away_since,
+          strokes, away_count, away_seconds, active_seconds)
 ```
 
 表在启动时自动创建（`create_all`）。已有库新增列的情况请手动补：

@@ -154,6 +154,28 @@ class ApiClient {
   Future<ChildSummary> childSummary(String childId) async =>
       ChildSummary.fromJson(await get('/children/$childId/summary'));
 
+  /// 孩子端心跳。只上报素材，返回的状态由服务端推导。
+  Future<ChildPresence> reportPresence(
+    String childId,
+    PresenceReport report,
+  ) async {
+    final json = await post('/children/$childId/presence', report.toJson());
+    return ChildPresence.fromJson(json);
+  }
+
+  /// 家长列表页一次取全部孩子的在线状态
+  Future<Map<String, ChildPresence>> listPresence() async {
+    final json = await get('/children/presence') as List;
+    return {
+      for (final item in json)
+        (item as Map<String, dynamic>)['child_id'] as String:
+            ChildPresence.fromJson(item),
+    };
+  }
+
+  Future<ChildPresence> childPresence(String childId) async =>
+      ChildPresence.fromJson(await get('/children/$childId/presence'));
+
   /// scope: today（只清今天，可重练）/ all（清空全部）
   /// date 传客户端本地日期，避免服务器时区与本机不一致时清错日子
   Future<void> resetChild(
@@ -334,6 +356,102 @@ class ChildSummary {
   }
 }
 
+/// 孩子端一次心跳的上报内容。
+///
+/// 只放素材，不放「我在练习」这种结论：服务端会按时间差自行推导，
+/// 客户端自报的状态不可信（关页面、断网都不再上报）。
+class PresenceReport {
+  const PresenceReport({
+    required this.date,
+    this.practiceId,
+    this.visible = true,
+    this.lastStrokeAgeSeconds,
+    this.strokes = 0,
+    this.awayCount = 0,
+    this.awaySeconds = 0,
+    this.activeSeconds = 0,
+  });
+
+  final String date;
+  final String? practiceId;
+  final bool visible;
+  /// 距最近一次落笔过去多少秒；本次练习还没落笔时为 null。
+  ///
+  /// 上报时间差而不是布尔值：布尔值一旦为真就永远为真，
+  /// 停笔的孩子会被服务端一直算作「正在练习」。
+  final int? lastStrokeAgeSeconds;
+  final int strokes;
+  final int awayCount;
+  final int awaySeconds;
+  final int activeSeconds;
+
+  Map<String, dynamic> toJson() => {
+    'date': date,
+    if (practiceId != null) 'practice_id': practiceId,
+    'visible': visible,
+    if (lastStrokeAgeSeconds != null)
+      'last_stroke_age_seconds': lastStrokeAgeSeconds,
+    'strokes': strokes,
+    'away_count': awayCount,
+    'away_seconds': awaySeconds,
+    'active_seconds': activeSeconds,
+  };
+}
+
+/// 服务端推导出的在线状态。UI 只认 [state]，不要自己算。
+class ChildPresence {
+  ChildPresence({
+    required this.childId,
+    required this.state,
+    this.onlineSeconds,
+    this.awaySecondsNow,
+    this.strokes = 0,
+    this.awayCount = 0,
+    this.awaySeconds = 0,
+    this.activeSeconds = 0,
+  });
+
+  factory ChildPresence.fromJson(Object? value) {
+    final m = value as Map<String, dynamic>;
+    int? pick(String k) => (m[k] as num?)?.toInt();
+    return ChildPresence(
+      childId: (m['child_id'] as String?) ?? '',
+      state: (m['state'] as String?) ?? 'offline',
+      onlineSeconds: pick('online_seconds'),
+      awaySecondsNow: pick('away_seconds_now'),
+      strokes: pick('strokes') ?? 0,
+      awayCount: pick('away_count') ?? 0,
+      awaySeconds: pick('away_seconds') ?? 0,
+      activeSeconds: pick('active_seconds') ?? 0,
+    );
+  }
+
+  final String childId;
+  /// practicing / idle / away / offline
+  final String state;
+  final int? onlineSeconds;
+  final int? awaySecondsNow;
+  final int strokes;
+  final int awayCount;
+  final int awaySeconds;
+  final int activeSeconds;
+
+  bool get isPracticing => state == 'practicing';
+
+  /// 家长端一句话状态
+  String get label => switch (state) {
+    'practicing' => '正在练习${_short(onlineSeconds)}',
+    'idle' => '开着页面但没在写',
+    'away' => '已离开页面',
+    _ => '不在页面',
+  };
+
+  static String _short(int? seconds) {
+    if (seconds == null || seconds < 60) return '';
+    return ' · 已 ${seconds ~/ 60} 分钟';
+  }
+}
+
 class ParentInfo {
   ParentInfo({
     required this.id,
@@ -436,7 +554,7 @@ class RemoteJournalStore implements JournalRepository {
     }
     // 写入仍串行：同一时刻只允许一个 PUT 在飞
     final task = _chain.then((_) => _write(journal));
-    _chain = task.then<void>((_) {}, onError: (Object _, StackTrace __) {});
+    _chain = task.then<void>((_) {}, onError: (Object _, StackTrace _) {});
     try {
       await task;
       settle?.complete();

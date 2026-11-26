@@ -27,6 +27,8 @@ class WebSession extends ChangeNotifier {
   List<ChildInfo> children = [];
   List<ParentInfo> parents = [];
   Map<String, ChildSummary> summaries = {};
+  /// 孩子的实时在线状态，按 child_id 索引；由服务端推导，客户端只展示
+  Map<String, ChildPresence> presences = {};
 
   ChildInfo? activeChild;
   ChildSummary? activeSummary;
@@ -110,8 +112,18 @@ class WebSession extends ChangeNotifier {
     ]);
     summaries = {
       for (final (index, summary) in results.indexed)
-        if (summary != null) children[index].id: summary,
+        children[index].id: ?summary,
     };
+    await _loadPresences();
+  }
+
+  /// 在线状态单独一次请求取全，失败不影响汇总展示
+  Future<void> _loadPresences() async {
+    try {
+      presences = await _api!.listPresence();
+    } on Exception {
+      // 保留上一次的在线状态，避免网络抖动时整片闪成「不在页面」
+    }
   }
 
   Future<void> _enterChild(ChildInfo child, {required bool practice}) async {
@@ -167,6 +179,21 @@ class WebSession extends ChangeNotifier {
 
   /// 只刷新汇总，不动当前打开的孩子（列表页「刷新」按钮用）
   Future<void> refreshSummaries() => _guarded(_loadSummaries);
+
+  /// 列表页定时刷新在线状态。不走 _guarded：静默刷新不该闪忙碌指示，
+  /// 也不该在失败时覆盖用户正在看的错误提示。
+  Future<void> refreshPresence() async {
+    if (_api == null || busy) return;
+    // 只有状态或时长真的变了才重建：否则每 30 秒整页重绘一次毫无意义
+    final before = _presenceSignature();
+    await _loadPresences();
+    if (before != _presenceSignature()) notifyListeners();
+  }
+
+  String _presenceSignature() => [
+    for (final entry in presences.entries)
+      '${entry.key}:${entry.value.state}:${entry.value.onlineSeconds}',
+  ].join('|');
 
   // —— 管理员操作 ——
   Future<void> refreshParents() => _guarded(() async {
@@ -501,11 +528,34 @@ class _AuthScreenState extends ConsumerState<AuthScreen> {
 }
 
 /// 家长首页：学生列表 + 汇总概览
-class ParentScreen extends ConsumerWidget {
+class ParentScreen extends ConsumerStatefulWidget {
   const ParentScreen({super.key});
 
   @override
-  Widget build(BuildContext context, WidgetRef ref) {
+  ConsumerState<ParentScreen> createState() => _ParentScreenState();
+}
+
+class _ParentScreenState extends ConsumerState<ParentScreen> {
+  Timer? _poll;
+
+  @override
+  void initState() {
+    super.initState();
+    // 在线状态每 30 秒刷新一次就够：没必要为「孩子此刻在不在」上实时推送，
+    // 服务端的离线判定本身就要等 90 秒心跳超时。
+    _poll = Timer.periodic(const Duration(seconds: 30), (_) {
+      if (mounted) ref.read(webSessionProvider).refreshPresence();
+    });
+  }
+
+  @override
+  void dispose() {
+    _poll?.cancel();
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) {
     final session = ref.watch(webSessionProvider);
     return Scaffold(
       appBar: AppBar(
@@ -549,6 +599,7 @@ class ParentScreen extends ConsumerWidget {
                 _ChildCard(
                   child: child,
                   summary: session.summaries[child.id],
+                  presence: session.presences[child.id],
                   onOpen: () => session.openChild(child),
                 ),
             ],
@@ -564,16 +615,19 @@ class _ChildCard extends StatelessWidget {
     required this.child,
     required this.summary,
     required this.onOpen,
+    this.presence,
   });
 
   final ChildInfo child;
   final ChildSummary? summary;
+  final ChildPresence? presence;
   final VoidCallback onOpen;
 
   @override
   Widget build(BuildContext context) {
     final s = summary;
     final accuracy = s?.accuracy;
+    final p = presence;
     return Card(
       margin: const EdgeInsets.only(bottom: 12),
       child: InkWell(
@@ -610,6 +664,10 @@ class _ChildCard extends StatelessWidget {
                   const Icon(Icons.chevron_right),
                 ],
               ),
+              if (p != null) ...[
+                const SizedBox(height: 10),
+                _PresenceChip(presence: p),
+              ],
               const SizedBox(height: 12),
               Wrap(
                 spacing: 22,
@@ -625,6 +683,41 @@ class _ChildCard extends StatelessWidget {
           ),
         ),
       ),
+    );
+  }
+}
+
+/// 家长端一句话在线状态。状态本身来自服务端推导，这里只负责呈现。
+class _PresenceChip extends StatelessWidget {
+  const _PresenceChip({required this.presence});
+
+  final ChildPresence presence;
+
+  @override
+  Widget build(BuildContext context) {
+    final (color, icon) = switch (presence.state) {
+      'practicing' => (verdictOk, Icons.edit_rounded),
+      'idle' => (const Color(0xFFB26A00), Icons.hourglass_bottom_rounded),
+      'away' => (const Color(0xFF8A6D3B), Icons.exit_to_app_rounded),
+      _ => (textMuted, Icons.cloud_off_rounded),
+    };
+    return Row(
+      mainAxisSize: MainAxisSize.min,
+      children: [
+        Icon(icon, size: 15, color: color),
+        const SizedBox(width: 6),
+        Text(
+          presence.label,
+          style: TextStyle(color: color, fontSize: 13, fontWeight: FontWeight.w600),
+        ),
+        if (presence.awayCount > 0) ...[
+          const SizedBox(width: 10),
+          Text(
+            '今天离开 ${presence.awayCount} 次',
+            style: const TextStyle(color: textMuted, fontSize: 12),
+          ),
+        ],
+      ],
     );
   }
 }

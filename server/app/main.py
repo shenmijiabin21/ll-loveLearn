@@ -10,7 +10,7 @@ from sqlalchemy import select, text
 from . import models  # noqa: F401
 from .config import settings
 from .database import Base, SessionLocal, engine
-from .routers import admin, auth, children, grade, journal
+from .routers import admin, auth, children, grade, journal, presence
 from .security import hash_password
 
 log = logging.getLogger("uvicorn.error")
@@ -67,6 +67,7 @@ app.add_middleware(
 app.include_router(auth.router)
 app.include_router(children.router)
 app.include_router(journal.router)
+app.include_router(presence.router)
 app.include_router(grade.router)
 app.include_router(admin.router)
 

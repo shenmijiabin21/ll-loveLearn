@@ -24,6 +24,8 @@ migrate_working_dir/
 #.vscode/
 
 # Flutter/Dart/Pub related
+# 本地下载的 SDK（体积大，不进仓库）
+.flutter-sdk/
 **/doc/api/
 **/ios/Flutter/.last_build_id
 .dart_tool/

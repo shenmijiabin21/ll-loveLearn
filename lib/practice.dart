@@ -3,6 +3,7 @@ import 'dart:math' as math;
 import 'dart:ui' as ui;
 import 'dart:ui' show PointMode;
 
+import 'package:flutter/foundation.dart';
 import 'package:flutter/gestures.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:material_ui/material_ui.dart' hide Ink;
@@ -11,6 +12,7 @@ import 'controller.dart';
 import 'device.dart';
 import 'domain.dart';
 import 'main.dart';
+import 'presence.dart';
 import 'remote.dart';
 
 Color _frameColor(Verdict? verdict) => switch (verdict) {
@@ -47,6 +49,7 @@ class _PracticePageState extends ConsumerState<PracticePage>
   late final Controller _controller;
   bool _busy = false;
   bool _playing = false;
+  PracticePresence? _presence;
 
 
 
@@ -56,10 +59,24 @@ class _PracticePageState extends ConsumerState<PracticePage>
     _speech = ref.read(speechProvider);
     _controller = ref.read(controllerProvider);
     WidgetsBinding.instance.addObserver(this);
+    unawaited(_startPresence());
+  }
+
+  /// 只有网页端有账号和服务端，手机端是纯离线的，不上报。
+  Future<void> _startPresence() async {
+    if (!kIsWeb) return;
+    final api = ref.read(apiClientProvider);
+    final store = _controller.store;
+    if (store is! RemoteJournalStore) return;
+    final presence = PracticePresence(
+      report: (report) => api.reportPresence(store.childId, report),
+    )..start(practice.id);
+    _presence = presence;
   }
 
   @override
   void didChangeAppLifecycleState(AppLifecycleState state) {
+    _presence?.didChangeAppLifecycleState(state);
     if (state != AppLifecycleState.resumed && !practice.submitted) {
       // 切后台/关标签页时绕过合并窗口，立即写出
       unawaited(_controller.persist().then((_) => _controller.flush()));
@@ -69,6 +86,7 @@ class _PracticePageState extends ConsumerState<PracticePage>
   @override
   void dispose() {
     WidgetsBinding.instance.removeObserver(this);
+    _presence?.stop();
     unawaited(_speech.stop());
     // 这里不能 persist()：dispose 期间 notifyListeners 会触发
     // "Tried to modify a provider while the widget tree was building"。
@@ -163,6 +181,9 @@ class _PracticePageState extends ConsumerState<PracticePage>
       if (!mounted) return;
       await _controller.submit(practice, grades);
       if (!mounted) return;
+      // 交完就不再是「在练习」：先停上报，避免家长端还显示正在练
+      _presence?.stop();
+      _presence = null;
       setState(() => _busy = false);
       Navigator.of(context).pushReplacement(
         MaterialPageRoute<void>(builder: (_) => ResultPage(practice: practice)),
@@ -289,6 +310,7 @@ class _PracticePageState extends ConsumerState<PracticePage>
                                     onStroke: (stroke) {
                                       answer.ink.add(stroke);
                                       answer.skipped = false;
+                                      _presence?.stroke();
                                       _save();
                                     },
                                   ),
