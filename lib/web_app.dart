@@ -195,6 +195,9 @@ class WebSession extends ChangeNotifier {
 
   /// 列表页定时刷新在线状态。不走 _guarded：静默刷新不该闪忙碌指示，
   /// 也不该在失败时覆盖用户正在看的错误提示。
+  ///
+  /// busy 期间跳过是必要的（避免与重练等操作抢同一份数据），但下一次
+  /// 定时器会自然重试，所以最多晚 5 秒，不会漏掉状态更新。
   Future<void> refreshPresence() async {
     // 上一次还没回来就跳过这一拍：5 秒间隔下，网络抖动时请求会越堆越多
     if (_api == null || busy || _presenceInFlight) return;
