@@ -5,6 +5,7 @@ import 'package:ll_love_learn/device.dart';
 import 'package:ll_love_learn/domain.dart';
 import 'package:ll_love_learn/main.dart';
 import 'package:ll_love_learn/practice.dart';
+import 'package:ll_love_learn/remote.dart';
 import 'package:ll_love_learn/storage.dart';
 import 'package:material_ui/material_ui.dart';
 
@@ -24,6 +25,19 @@ class UnavailableModel extends DigitalInk {
   Future<bool> ready() async => false;
 }
 
+/// 这个测试验证的是提交流程与界面，识别器本身不该介入。
+/// 真实 DigitalInk.grade 是异步的，在 widget 测试的 fake async 环境里
+/// 不一定能被 pumpAndSettle 驱动完，会让提交停在 await 上。
+class ImmediateGrader implements Grader {
+  @override
+  Future<List<Grade>> grade(List<Answer> answers) async => [
+    for (final answer in answers)
+      answer.ink.isEmpty
+          ? (verdict: Verdict.blank, candidates: const <String>[])
+          : (verdict: Verdict.pending, candidates: const <String>[]),
+  ];
+}
+
 void main() {
   testWidgets('write, resume, submit, and correct a daily practice', (
     tester,
@@ -37,6 +51,7 @@ void main() {
         overrides: [
           startup.overrideWith((ref) async => controller!),
           inkProvider.overrideWithValue(UnavailableModel()),
+          graderProvider.overrideWithValue(ImmediateGrader()),
         ],
         child: const DictationApp(),
       ),
@@ -59,8 +74,7 @@ void main() {
 
     await tester.tap(find.widgetWithText(ChoiceChip, '5'));
     await tester.pumpAndSettle();
-    // 限定到页面按钮：确认弹窗里的 FilledButton 文案相同，
-    // 裸 find.text 在弹窗出现后会产生多匹配。
+    // 精确限定到页面按钮；弹窗按钮文案相同，避免将来时序变化导致多匹配。
     expect(find.byType(AlertDialog), findsNothing);
     await tester.tap(find.widgetWithText(FilledButton, '提交批改'));
     await tester.pumpAndSettle();
