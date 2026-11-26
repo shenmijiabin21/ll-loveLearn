@@ -552,23 +552,49 @@ class ParentScreen extends ConsumerStatefulWidget {
   ConsumerState<ParentScreen> createState() => _ParentScreenState();
 }
 
-class _ParentScreenState extends ConsumerState<ParentScreen> {
+class _ParentScreenState extends ConsumerState<ParentScreen>
+    with WidgetsBindingObserver {
   Timer? _poll;
 
   @override
   void initState() {
     super.initState();
-    // 5 秒刷新一次：孩子端每 30 秒上报一次心跳，但家长看到的是「已练 N 分钟」，
-    // 刷新太慢会让数字长时间不动，看起来像卡住了。5 秒足够灵敏，
-    // 单次请求只是一个孩子一行的小 JSON，开销可以忽略。
+    WidgetsBinding.instance.addObserver(this);
+    _startPolling();
+  }
+
+  /// 5 秒刷新一次：孩子端每 30 秒上报一次心跳，但家长看到的是「已练 N 分钟」，
+  /// 刷新太慢会让数字长时间不动，看起来像卡住了。5 秒足够灵敏，
+  /// 单次请求只是一个孩子一行的小 JSON，开销可以忽略。
+  void _startPolling() {
+    _poll?.cancel();
     _poll = Timer.periodic(const Duration(seconds: 5), (_) {
       if (mounted) ref.read(webSessionProvider).refreshPresence();
     });
   }
 
+  void _stopPolling() {
+    _poll?.cancel();
+    _poll = null;
+  }
+
+  /// 页面在后台时不轮询：家长常把页面挂着，5 秒一次的请求
+  /// 在没人看的时候毫无意义，只会持续占用服务端和流量。
+  /// 回到前台立即补一次，避免继续挂着过期数据。
+  @override
+  void didChangeAppLifecycleState(AppLifecycleState state) {
+    if (state == AppLifecycleState.resumed) {
+      if (mounted) ref.read(webSessionProvider).refreshPresence();
+      _startPolling();
+    } else {
+      _stopPolling();
+    }
+  }
+
   @override
   void dispose() {
-    _poll?.cancel();
+    WidgetsBinding.instance.removeObserver(this);
+    _stopPolling();
     super.dispose();
   }
 
