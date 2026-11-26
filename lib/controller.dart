@@ -22,7 +22,8 @@ class Controller extends ChangeNotifier {
   static Future<Controller> load(JournalRepository store) async {
     final saved = await store.load();
     if (saved != null) return Controller(store, saved);
-    final asset = await rootBundle.loadString('assets/demo.json');
+    // 默认载入人教部编版二三年级预置字库
+    final asset = await rootBundle.loadString('assets/library_renjiao_23.json');
     return Controller(store, Journal(Library.fromJson(jsonDecode(asset))));
   }
 

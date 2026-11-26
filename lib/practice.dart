@@ -1,5 +1,6 @@
 import 'dart:async';
 import 'dart:math' as math;
+import 'dart:ui' as ui;
 import 'dart:ui' show PointMode;
 
 import 'package:flutter/gestures.dart';
@@ -11,6 +12,17 @@ import 'device.dart';
 import 'domain.dart';
 import 'main.dart';
 import 'remote.dart';
+
+// 批改结果配色：正确=绿，待确认=红，其余保持中性
+const verdictOk = Color(0xFF2E7D32);
+const verdictWarn = Color(0xFFC62828);
+const verdictNeutral = Color(0xFFDCE3D7);
+
+Color _frameColor(Verdict? verdict) => switch (verdict) {
+  Verdict.correct => verdictOk,
+  Verdict.pending => verdictWarn,
+  _ => verdictNeutral,
+};
 
 void openPractice(BuildContext context, Practice practice) {
   Navigator.of(context).push(
@@ -40,6 +52,8 @@ class _PracticePageState extends ConsumerState<PracticePage>
   late final Controller _controller;
   bool _busy = false;
   bool _playing = false;
+
+
 
   @override
   void initState() {
@@ -169,11 +183,12 @@ class _PracticePageState extends ConsumerState<PracticePage>
         body: SafeArea(
           // 练习页刻意不使用滚动容器：田字格按剩余高度自适应缩放，
           // 整页恰好铺满屏幕，书写时不会出现上下滑动。
-          child: Column(
+          child: Stack(
             children: [
-              const SaveNotice(),
-              Expanded(
-                child: Center(
+              Column(
+                children: [
+                  Expanded(
+                    child: Center(
                   child: ConstrainedBox(
                     constraints: const BoxConstraints(maxWidth: 880),
                     child: Padding(
@@ -253,6 +268,7 @@ class _PracticePageState extends ConsumerState<PracticePage>
                           Expanded(
                             child: LayoutBuilder(
                               builder: (context, box) {
+                                // 听写只给空格子：笔顺引导属于「练习」功能
                                 final side = math.max(
                                   120.0,
                                   math.min(
@@ -301,6 +317,7 @@ class _PracticePageState extends ConsumerState<PracticePage>
                                 icon: const Icon(Icons.delete_outline),
                                 label: const Text('清空'),
                               ),
+
                             ],
                           ),
                           if (_busy)
@@ -352,6 +369,15 @@ class _PracticePageState extends ConsumerState<PracticePage>
                     ),
                   ),
                 ),
+                  ),
+                ],
+              ),
+              // 保存提示放在浮层，出现/消失都不会挤压田字格导致布局跳动
+              const Positioned(
+                left: 0,
+                right: 0,
+                top: 0,
+                child: SaveNotice(),
               ),
             ],
           ),
@@ -587,7 +613,7 @@ class ResultPage extends ConsumerWidget {
                     const Padding(
                       padding: EdgeInsets.only(bottom: 14),
                       child: Text(
-                        '模型未准备好或候选不够明确时，家长可查看原笔迹并订正。',
+                        '田字框绿色表示识别正确，红色表示模型不确定，请家长核对后订正。',
                         style: TextStyle(color: textMuted),
                       ),
                     ),
@@ -598,7 +624,24 @@ class ResultPage extends ConsumerWidget {
                         child: Row(
                           crossAxisAlignment: CrossAxisAlignment.start,
                           children: [
-                            InkBoard(ink: answer.ink, size: 78, enabled: false),
+                            Container(
+                              decoration: BoxDecoration(
+                                borderRadius: BorderRadius.circular(6),
+                                border: Border.all(
+                                  color: _frameColor(answer.verdict),
+                                  width:
+                                      answer.verdict == Verdict.correct ||
+                                          answer.verdict == Verdict.pending
+                                      ? 2.5
+                                      : 1,
+                                ),
+                              ),
+                              child: InkBoard(
+                                ink: answer.ink,
+                                size: 78,
+                                enabled: false,
+                              ),
+                            ),
                             const SizedBox(width: 12),
                             Expanded(
                               child: Column(
@@ -614,11 +657,23 @@ class ResultPage extends ConsumerWidget {
                                   Text(
                                     '${answer.verdict?.label ?? '待确认'}${answer.override == null ? '' : ' · 家长订正'}',
                                   ),
-                                  if (answer.candidates.isNotEmpty)
+                                  if (answer.candidates.isNotEmpty) ...[
                                     Text(
-                                      '候选 ${answer.candidates.join('、')}',
-                                      style: const TextStyle(color: textMuted),
+                                      '识别 ${answer.candidates.first}',
+                                      style: TextStyle(
+                                        fontWeight: FontWeight.w700,
+                                        color: _frameColor(answer.verdict),
+                                      ),
                                     ),
+                                    if (answer.candidates.length > 1)
+                                      Text(
+                                        '其他候选 ${answer.candidates.skip(1).join('、')}',
+                                        style: const TextStyle(
+                                          color: textMuted,
+                                          fontSize: 12,
+                                        ),
+                                      ),
+                                  ],
                                   Wrap(
                                     children: [
                                       TextButton(

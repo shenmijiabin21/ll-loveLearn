@@ -1,7 +1,13 @@
 typedef Json = Map<String, dynamic>;
 typedef Ink = List<List<InkPoint>>;
 
-const volumes = {'3a': '三年级上册', '2b': '二年级下册', '2a': '二年级上册'};
+// 顺序即练习顺序：由后往前（三年级下册 → 三年级上册 → 二年级下册 → 二年级上册）
+const volumes = {
+  '3b': '三年级下册',
+  '3a': '三年级上册',
+  '2b': '二年级下册',
+  '2a': '二年级上册',
+};
 const _positions = ['一', '二', '三', '四', '五', '六', '七', '八'];
 final _han = RegExp(r'^\p{Script=Han}$', unicode: true);
 

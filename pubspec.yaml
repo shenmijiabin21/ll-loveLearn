@@ -27,3 +27,5 @@ flutter:
   uses-material-design: true
   assets:
     - assets/demo.json
+    - assets/library_renjiao_23.json
+    - assets/hanzi_strokes.json

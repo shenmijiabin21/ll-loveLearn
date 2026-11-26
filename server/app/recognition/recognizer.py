@@ -14,16 +14,17 @@ def is_han(text: str) -> bool:
 
 
 class Recognizer:
-    """单字手写识别（RapidOCR / PP-OCR 识别网络，onnxruntime）。
+    """单字手写识别（RapidOCR / PP-OCRv5 识别网络，onnxruntime）。
 
-    要点（均以真实学生笔迹实测得出）：
+    做法（均以真实学生笔迹实测得出）：
     1. 关掉文字检测、只跑识别网络：整格图会被检测判成"没有文字"而返回空。
     2. 细笔画 + 大留白 + 超采样：更接近印刷体训练分布，置信度明显提高。
-    3. 候选字约束：练习只涉及少数几个字，把解码限制在这几个字内，
-       模型的判别力显著提升，并能给出"领先幅度"作为可靠性信号。
+    3. 按"单字"解码：在汉字集合上取最强时间步的分布，取排名前三的候选。
+       直接走 CTC 行解码时会出现"双观"这类两字输出，单字解码更稳定。
+    4. 判定看排名而非绝对概率：第一候选等于目标字即判正确。
+       汉字表约 1.8 万字，碰巧相撞的概率可忽略；不相等一律待确认，由家长订正。
 
-    约束解码无信号时回退开集识别；两者都不确定则返回 pending，
-    由家长人工订正兜底。
+    不限制候选字范围：识别到什么就展示什么。
     """
 
     def __init__(
@@ -31,15 +32,15 @@ class Recognizer:
         min_conf: float = 0.5,
         min_conf_wrong: float = 0.75,
         verdict_mode: str = "conservative",
-        margin_min: float = 0.04,
     ):
         self.min_conf = min_conf
         self.min_conf_wrong = min_conf_wrong
         self.verdict_mode = verdict_mode
-        self.margin_min = margin_min
         self._engine = None
         self._rec = None
         self._charset = None
+        self._han_chars: list[str] = []
+        self._han_cols = None
         self._failed = False
         self._lock = threading.Lock()
 
@@ -55,12 +56,21 @@ class Recognizer:
 
                 self._engine = RapidOCR()
                 try:
+                    import numpy as np
+
                     self._rec = self._engine.text_rec
                     chars = self._rec.postprocess_op.character
                     index: dict[str, int] = {}
                     for i, c in enumerate(chars):
                         index.setdefault(c, i)
                     self._charset = (chars, index)
+                    han = [
+                        c
+                        for c in chars
+                        if len(c) == 1 and "\u4e00" <= c <= "\u9fff"
+                    ]
+                    self._han_chars = han
+                    self._han_cols = np.array([index[c] for c in han])
                 except Exception:
                     self._rec = None
                     self._charset = None
@@ -69,7 +79,6 @@ class Recognizer:
                 self._engine = None
         return self._engine
 
-    # —— 渲染 ——
     @staticmethod
     def _variants(strokes):
         base = rasterize(strokes)
@@ -80,40 +89,7 @@ class Recognizer:
             pass
         return variants
 
-    # —— 开集识别 ——
-    @staticmethod
-    def _infer(engine, image):
-        import numpy as np
-
-        arr = np.array(image.convert("L"))
-        arr = np.stack([arr, arr, arr], axis=-1)
-        try:
-            out, _ = engine(arr, use_det=False, use_cls=False, use_rec=True)
-        except Exception:
-            return []
-        items = []
-        for line in out or []:
-            try:
-                text = str(line[0]).strip()
-                score = float(line[1])
-            except Exception:
-                continue
-            if text:
-                items.append((text, score))
-        return items
-
-    def recognize(self, strokes):
-        engine = self._load()
-        if engine is None:
-            return []
-        best: dict[str, float] = {}
-        for variant in self._variants(strokes):
-            for text, score in self._infer(engine, variant):
-                if best.get(text, 0.0) < score:
-                    best[text] = score
-        return sorted(best.items(), key=lambda kv: kv[1], reverse=True)
-
-    # —— 候选字约束解码 ——
+    # —— 单字解码 ——
     def _timestep_probs(self, image):
         import numpy as np
 
@@ -130,70 +106,88 @@ class Recognizer:
         exp = np.exp(shifted)
         return exp / exp.sum(axis=1, keepdims=True)
 
-    def _constrained(self, expected: str, strokes, allowed: list[str]):
-        """在候选字集合内解码。返回 (排名列表, 领先幅度) 或 None。"""
-        self._load()
-        if self._rec is None or self._charset is None:
-            return None
-        chars, index = self._charset
-        candidates = [c for c in dict.fromkeys(allowed) if c in index]
-        if len(candidates) < 2:
-            return None
+    def _single_char(self, image, top: int = 3):
         import numpy as np
 
-        image = rasterize(strokes, supersample=4)
         probs = self._timestep_probs(image)
-        cols = [index[c] for c in candidates]
-        sub = probs[:, cols]
+        sub = probs[:, self._han_cols]
         mass = sub.sum(axis=1)
         step = int(np.argmax(mass))
         if mass[step] <= 0:
-            return None
+            return []
         q = sub[step] / mass[step]
-        order = np.argsort(q)[::-1]
-        ranked = [(candidates[int(order[k])], float(q[order[k]])) for k in range(len(order))]
-        margin = ranked[0][1] - (ranked[1][1] if len(ranked) > 1 else 0.0)
-        return ranked, margin
+        order = np.argsort(q)[::-1][:top]
+        return [(self._han_chars[int(i)], float(q[int(i)])) for i in order]
+
+    # —— 兜底：CTC 行解码 ——
+    def _line_decode(self, strokes):
+        engine = self._engine
+        if engine is None:
+            return []
+        import numpy as np
+
+        found: dict[str, float] = {}
+        for image in self._variants(strokes):
+            arr = np.array(image.convert("L"))
+            arr = np.stack([arr, arr, arr], axis=-1)
+            try:
+                out, _ = engine(arr, use_det=False, use_cls=False, use_rec=True)
+            except Exception:
+                continue
+            for line in out or []:
+                try:
+                    text = str(line[0]).strip()
+                    score = float(line[1])
+                except Exception:
+                    continue
+                if text and found.get(text, 0.0) < score:
+                    found[text] = score
+        return sorted(found.items(), key=lambda kv: kv[1], reverse=True)
 
     # —— 判定 ——
     def classify(self, expected: str, strokes, allowed: Optional[list[str]] = None):
-        """返回 {'verdict': correct|wrong|pending, 'candidates': [str]}。"""
+        """返回 {'verdict': correct|wrong|pending, 'candidates': [str]}。
+
+        allowed 仅为接口兼容保留，不参与限定。
+        """
         if not strokes:
             return {"verdict": "blank", "candidates": []}
 
-        # 1) 候选字约束：有足够领先幅度才采纳
-        if allowed:
-            constrained = self._constrained(expected, strokes, allowed)
-            if constrained is not None:
-                ranked, margin = constrained
-                labels = [c for c, _ in ranked[:5]]
-                top, p = ranked[0]
-                if top == expected and margin >= self.margin_min:
+        self._load()
+        if self._rec is not None and self._han_cols is not None:
+            merged: dict[str, float] = {}
+            for image in self._variants(strokes):
+                for char, score in self._single_char(image):
+                    if merged.get(char, 0.0) < score:
+                        merged[char] = score
+            ranked = sorted(merged.items(), key=lambda kv: kv[1], reverse=True)
+            if ranked:
+                labels = [c for c, _ in ranked[:3]]
+                top = labels[0]
+                if top == expected:
                     return {"verdict": "correct", "candidates": labels}
                 if (
                     self.verdict_mode == "standard"
-                    and top != expected
-                    and margin >= self.margin_min
-                    and p >= 0.3
+                    and ranked[0][1] >= self.min_conf_wrong
                 ):
                     return {"verdict": "wrong", "candidates": labels}
+                return {"verdict": "pending", "candidates": labels}
 
-        # 2) 回退：开集识别
-        found = self.recognize(strokes)
+        # 兜底：行解码结果里找目标字
+        found = self._line_decode(strokes)
         if not found:
             return {"verdict": "pending", "candidates": []}
         labels = [t for t, _ in found[:5]]
         top_text, top_conf = found[0]
-        verdict = "pending"
         if is_han(top_text) and top_conf >= self.min_conf:
             if top_text == expected:
-                verdict = "correct"
-            elif (
+                return {"verdict": "correct", "candidates": labels}
+            if (
                 self.verdict_mode == "standard"
                 and top_conf >= self.min_conf_wrong
             ):
-                verdict = "wrong"
-        return {"verdict": verdict, "candidates": labels}
+                return {"verdict": "wrong", "candidates": labels}
+        return {"verdict": "pending", "candidates": labels}
 
 
 _recognizer: Optional[Recognizer] = None

@@ -1,0 +1,333 @@
+{
+  "schema": 1,
+  "edition": "renjiao23",
+  "title": "人教部编版 · 小学语文 二三年级",
+  "source": "人教部编版（统编）小学语文二年级上册/下册、三年级上册/下册 生字表与词语表",
+  "sample": false,
+  "lessons": [
+    {"volume": "2a", "number": 1, "title": "小蝌蚪找妈妈", "words": [
+      {"character": "两", "phrase": "两个", "position": 1}, {"character": "哪", "phrase": "哪里", "position": 1}, {"character": "跳", "phrase": "跳高", "position": 1}, {"character": "变", "phrase": "变化", "position": 1}, {"character": "肚", "phrase": "肚皮", "position": 1}, {"character": "顶", "phrase": "头顶", "position": 2}
+    ]},
+    {"volume": "2a", "number": 2, "title": "我是什么", "words": [
+      {"character": "变", "phrase": "变成", "position": 1}, {"character": "云", "phrase": "白云", "position": 2}, {"character": "冷", "phrase": "冷水", "position": 1}, {"character": "池", "phrase": "水池", "position": 2}, {"character": "么", "phrase": "什么", "position": 2}, {"character": "机", "phrase": "机器", "position": 1}
+    ]},
+    {"volume": "2a", "number": 3, "title": "植物妈妈有办法", "words": [
+      {"character": "法", "phrase": "办法", "position": 2}, {"character": "如", "phrase": "如果", "position": 1}, {"character": "娃", "phrase": "娃娃", "position": 1}, {"character": "知", "phrase": "知识", "position": 1}, {"character": "豆", "phrase": "豌豆", "position": 2}
+    ]},
+    {"volume": "2a", "number": 4, "title": "场景歌", "words": [
+      {"character": "园", "phrase": "花园", "position": 2}, {"character": "桥", "phrase": "石桥", "position": 2}, {"character": "队", "phrase": "队伍", "position": 1}, {"character": "旗", "phrase": "红旗", "position": 2}, {"character": "铜", "phrase": "铜号", "position": 1}, {"character": "巾", "phrase": "毛巾", "position": 2}
+    ]},
+    {"volume": "2a", "number": 5, "title": "树之歌", "words": [
+      {"character": "杨", "phrase": "杨树", "position": 1}, {"character": "梧", "phrase": "梧桐", "position": 1}, {"character": "枫", "phrase": "枫树", "position": 1}, {"character": "松", "phrase": "松树", "position": 1}, {"character": "棉", "phrase": "木棉", "position": 2}, {"character": "桂", "phrase": "桂花", "position": 1}, {"character": "化", "phrase": "化石", "position": 1}
+    ]},
+    {"volume": "2a", "number": 6, "title": "拍手歌", "words": [
+      {"character": "拍", "phrase": "拍手", "position": 1}, {"character": "朋", "phrase": "朋友", "position": 1}, {"character": "护", "phrase": "保护", "position": 2}, {"character": "鹰", "phrase": "雄鹰", "position": 2}, {"character": "燕", "phrase": "燕子", "position": 1}
+    ]},
+    {"volume": "2a", "number": 7, "title": "田家四季歌", "words": [
+      {"character": "季", "phrase": "季节", "position": 1}, {"character": "春", "phrase": "春风", "position": 1}, {"character": "农", "phrase": "农事", "position": 1}, {"character": "采", "phrase": "采桑", "position": 1}, {"character": "谷", "phrase": "谷子", "position": 1}, {"character": "晴", "phrase": "晴朗", "position": 1}, {"character": "棉", "phrase": "棉衣", "position": 1}
+    ]},
+    {"volume": "2a", "number": 8, "title": "曹冲称象", "words": [
+      {"character": "重", "phrase": "重量", "position": 1}, {"character": "船", "phrase": "大船", "position": 2}, {"character": "底", "phrase": "到底", "position": 2}, {"character": "议", "phrase": "议论", "position": 1}, {"character": "岁", "phrase": "岁数", "position": 1}
+    ]},
+    {"volume": "2a", "number": 9, "title": "玲玲的画", "words": [
+      {"character": "画", "phrase": "画画", "position": 1}, {"character": "评", "phrase": "评奖", "position": 1}, {"character": "另", "phrase": "另外", "position": 1}, {"character": "及", "phrase": "及时", "position": 1}, {"character": "桌", "phrase": "桌子", "position": 1}
+    ]},
+    {"volume": "2a", "number": 10, "title": "一封信", "words": [
+      {"character": "信", "phrase": "书信", "position": 2}, {"character": "封", "phrase": "一封", "position": 2}, {"character": "灯", "phrase": "台灯", "position": 2}, {"character": "圆", "phrase": "圆珠笔", "position": 1}, {"character": "影", "phrase": "电影", "position": 2}
+    ]},
+    {"volume": "2a", "number": 11, "title": "妈妈睡了", "words": [
+      {"character": "睡", "phrase": "睡觉", "position": 1}, {"character": "弯", "phrase": "弯弯", "position": 1}, {"character": "眉", "phrase": "眉毛", "position": 1}, {"character": "沙", "phrase": "沙子", "position": 1}, {"character": "汗", "phrase": "汗珠", "position": 1}
+    ]},
+    {"volume": "2a", "number": 12, "title": "古诗二首（登鹳雀楼·望庐山瀑布）", "words": [
+      {"character": "楼", "phrase": "高楼", "position": 2}, {"character": "黄", "phrase": "黄河", "position": 1}, {"character": "层", "phrase": "一层", "position": 2}, {"character": "炉", "phrase": "香炉", "position": 2}, {"character": "烟", "phrase": "烟花", "position": 1}, {"character": "川", "phrase": "山川", "position": 2}
+    ]},
+    {"volume": "2a", "number": 13, "title": "黄山奇石", "words": [
+      {"character": "南", "phrase": "南方", "position": 1}, {"character": "部", "phrase": "部分", "position": 1}, {"character": "巨", "phrase": "巨大", "position": 1}, {"character": "每", "phrase": "每天", "position": 1}, {"character": "升", "phrase": "升起", "position": 1}, {"character": "狗", "phrase": "小狗", "position": 2}
+    ]},
+    {"volume": "2a", "number": 14, "title": "日月潭", "words": [
+      {"character": "湾", "phrase": "台湾", "position": 2}, {"character": "岛", "phrase": "小岛", "position": 2}, {"character": "纱", "phrase": "轻纱", "position": 2}, {"character": "环", "phrase": "环绕", "position": 1}, {"character": "建", "phrase": "建筑", "position": 1}, {"character": "胜", "phrase": "名胜", "position": 2}
+    ]},
+    {"volume": "2a", "number": 15, "title": "葡萄沟", "words": [
+      {"character": "份", "phrase": "一份", "position": 2}, {"character": "坡", "phrase": "山坡", "position": 2}, {"character": "枝", "phrase": "树枝", "position": 2}, {"character": "搭", "phrase": "搭起", "position": 1}, {"character": "客", "phrase": "客人", "position": 1}, {"character": "收", "phrase": "收下", "position": 1}
+    ]},
+    {"volume": "2a", "number": 16, "title": "坐井观天", "words": [
+      {"character": "井", "phrase": "水井", "position": 2}, {"character": "观", "phrase": "观看", "position": 1}, {"character": "答", "phrase": "回答", "position": 2}, {"character": "渴", "phrase": "口渴", "position": 2}, {"character": "喝", "phrase": "喝水", "position": 1}, {"character": "弄", "phrase": "弄错", "position": 1}, {"character": "际", "phrase": "无边无际", "position": 4}
+    ]},
+    {"volume": "2a", "number": 17, "title": "寒号鸟", "words": [
+      {"character": "阵", "phrase": "一阵", "position": 2}, {"character": "朗", "phrase": "晴朗", "position": 2}, {"character": "纷", "phrase": "纷纷", "position": 1}, {"character": "将", "phrase": "将来", "position": 1}, {"character": "夜", "phrase": "夜晚", "position": 1}
+    ]},
+    {"volume": "2a", "number": 18, "title": "我要的是葫芦", "words": [
+      {"character": "棵", "phrase": "一棵", "position": 2}, {"character": "谢", "phrase": "谢谢", "position": 1}, {"character": "想", "phrase": "想法", "position": 1}, {"character": "言", "phrase": "语言", "position": 2}, {"character": "邻", "phrase": "邻居", "position": 1}, {"character": "治", "phrase": "治病", "position": 1}
+    ]},
+    {"volume": "2a", "number": 19, "title": "大禹治水", "words": [
+      {"character": "洪", "phrase": "洪水", "position": 1}, {"character": "灾", "phrase": "灾难", "position": 1}, {"character": "认", "phrase": "认为", "position": 1}, {"character": "道", "phrase": "知道", "position": 2}, {"character": "业", "phrase": "农业", "position": 2}, {"character": "产", "phrase": "生产", "position": 2}
+    ]},
+    {"volume": "2a", "number": 20, "title": "朱德的扁担", "words": [
+      {"character": "扁", "phrase": "扁担", "position": 1}, {"character": "志", "phrase": "同志", "position": 2}, {"character": "伍", "phrase": "队伍", "position": 2}, {"character": "师", "phrase": "老师", "position": 2}, {"character": "军", "phrase": "红军", "position": 2}, {"character": "战", "phrase": "战士", "position": 1}
+    ]},
+    {"volume": "2a", "number": 21, "title": "难忘的泼水节", "words": [
+      {"character": "忘", "phrase": "难忘", "position": 2}, {"character": "泼", "phrase": "泼水", "position": 1}, {"character": "度", "phrase": "度过", "position": 1}, {"character": "穿", "phrase": "穿戴", "position": 1}, {"character": "炮", "phrase": "礼炮", "position": 2}, {"character": "敬", "phrase": "敬爱", "position": 1}
+    ]},
+    {"volume": "2a", "number": 22, "title": "古诗二首（夜宿山寺·敕勒歌）", "words": [
+      {"character": "危", "phrase": "危险", "position": 1}, {"character": "敢", "phrase": "勇敢", "position": 2}, {"character": "惊", "phrase": "惊人", "position": 1}, {"character": "辰", "phrase": "星辰", "position": 2}, {"character": "恐", "phrase": "恐怕", "position": 1}, {"character": "苍", "phrase": "苍茫", "position": 1}
+    ]},
+    {"volume": "2a", "number": 23, "title": "雾在哪里", "words": [
+      {"character": "于", "phrase": "于是", "position": 1}, {"character": "论", "phrase": "无论", "position": 2}, {"character": "屋", "phrase": "房屋", "position": 2}, {"character": "街", "phrase": "街道", "position": 1}, {"character": "梁", "phrase": "桥梁", "position": 2}
+    ]},
+    {"volume": "2a", "number": 24, "title": "雪孩子", "words": [
+      {"character": "柴", "phrase": "柴火", "position": 1}, {"character": "渐", "phrase": "渐渐", "position": 1}, {"character": "冒", "phrase": "冒烟", "position": 1}, {"character": "烧", "phrase": "烧火", "position": 1}, {"character": "赶", "phrase": "赶快", "position": 1}
+    ]},
+    {"volume": "2a", "number": 25, "title": "狐假虎威", "words": [
+      {"character": "食", "phrase": "食物", "position": 1}, {"character": "物", "phrase": "动物", "position": 2}, {"character": "爪", "phrase": "爪子", "position": 1}, {"character": "神", "phrase": "神气", "position": 1}, {"character": "活", "phrase": "活动", "position": 1}, {"character": "猪", "phrase": "野猪", "position": 2}
+    ]},
+    {"volume": "2a", "number": 26, "title": "狐狸分奶酪", "words": [
+      {"character": "始", "phrase": "开始", "position": 2}, {"character": "帮", "phrase": "帮忙", "position": 1}, {"character": "匀", "phrase": "均匀", "position": 2}, {"character": "剩", "phrase": "剩下", "position": 1}, {"character": "结", "phrase": "结束", "position": 1}
+    ]},
+    {"volume": "2a", "number": 27, "title": "纸船和风筝", "words": [
+      {"character": "松", "phrase": "松鼠", "position": 1}, {"character": "坏", "phrase": "坏了", "position": 1}, {"character": "抓", "phrase": "抓住", "position": 1}, {"character": "句", "phrase": "句子", "position": 1}, {"character": "幸", "phrase": "幸福", "position": 1}
+    ]},
+    {"volume": "2a", "number": 28, "title": "风娃娃", "words": [
+      {"character": "吸", "phrase": "吸水", "position": 1}, {"character": "帆", "phrase": "帆船", "position": 1}, {"character": "伤", "phrase": "伤心", "position": 1}, {"character": "汗", "phrase": "汗水", "position": 1}, {"character": "帮", "phrase": "帮助", "position": 1}
+    ]},
+    {"volume": "2b", "number": 1, "title": "古诗二首（村居·咏柳）", "words": [
+      {"character": "居", "phrase": "村居", "position": 2}, {"character": "春", "phrase": "春风", "position": 1}, {"character": "童", "phrase": "儿童", "position": 2}, {"character": "归", "phrase": "归来", "position": 1}, {"character": "绿", "phrase": "碧绿", "position": 2}, {"character": "剪", "phrase": "剪刀", "position": 1}
+    ]},
+    {"volume": "2b", "number": 2, "title": "找春天", "words": [
+      {"character": "脱", "phrase": "脱掉", "position": 1}, {"character": "寻", "phrase": "寻找", "position": 1}, {"character": "羞", "phrase": "害羞", "position": 2}, {"character": "嫩", "phrase": "嫩绿", "position": 1}, {"character": "符", "phrase": "符号", "position": 1}
+    ]},
+    {"volume": "2b", "number": 3, "title": "开满鲜花的小路", "words": [
+      {"character": "邮", "phrase": "邮递员", "position": 1}, {"character": "员", "phrase": "队员", "position": 2}, {"character": "原", "phrase": "原来", "position": 1}, {"character": "谈", "phrase": "谈话", "position": 1}, {"character": "礼", "phrase": "礼物", "position": 1}
+    ]},
+    {"volume": "2b", "number": 4, "title": "邓小平爷爷植树", "words": [
+      {"character": "植", "phrase": "植树", "position": 1}, {"character": "节", "phrase": "节日", "position": 1}, {"character": "龄", "phrase": "年龄", "position": 2}, {"character": "已", "phrase": "已经", "position": 1}, {"character": "息", "phrase": "休息", "position": 2}
+    ]},
+    {"volume": "2b", "number": 5, "title": "雷锋叔叔，你在哪里", "words": [
+      {"character": "雷", "phrase": "雷雨", "position": 1}, {"character": "锋", "phrase": "先锋", "position": 2}, {"character": "昨", "phrase": "昨天", "position": 1}, {"character": "留", "phrase": "留下", "position": 1}, {"character": "弯", "phrase": "弯曲", "position": 1}, {"character": "暖", "phrase": "温暖", "position": 2}
+    ]},
+    {"volume": "2b", "number": 6, "title": "千人糕", "words": [
+      {"character": "特", "phrase": "特别", "position": 1}, {"character": "买", "phrase": "买来", "position": 1}, {"character": "粉", "phrase": "米粉", "position": 2}, {"character": "甘", "phrase": "甘蔗", "position": 1}, {"character": "汁", "phrase": "果汁", "position": 2}
+    ]},
+    {"volume": "2b", "number": 7, "title": "一匹出色的马", "words": [
+      {"character": "匹", "phrase": "一匹", "position": 2}, {"character": "妹", "phrase": "妹妹", "position": 1}, {"character": "波", "phrase": "波纹", "position": 1}, {"character": "景", "phrase": "景色", "position": 1}, {"character": "恋", "phrase": "留恋", "position": 2}
+    ]},
+    {"volume": "2b", "number": 8, "title": "识字·神州谣", "words": [
+      {"character": "州", "phrase": "神州", "position": 2}, {"character": "湾", "phrase": "台湾", "position": 2}, {"character": "峡", "phrase": "海峡", "position": 2}, {"character": "民", "phrase": "民族", "position": 1}, {"character": "谊", "phrase": "情谊", "position": 2}, {"character": "荣", "phrase": "繁荣", "position": 2}
+    ]},
+    {"volume": "2b", "number": 9, "title": "识字·传统节日", "words": [
+      {"character": "传", "phrase": "传统", "position": 1}, {"character": "宵", "phrase": "元宵", "position": 2}, {"character": "巷", "phrase": "小巷", "position": 2}, {"character": "祭", "phrase": "祭扫", "position": 1}, {"character": "端", "phrase": "端午", "position": 1}, {"character": "饼", "phrase": "月饼", "position": 2}
+    ]},
+    {"volume": "2b", "number": 10, "title": "识字·贝的故事", "words": [
+      {"character": "贝", "phrase": "贝壳", "position": 1}, {"character": "骨", "phrase": "骨头", "position": 1}, {"character": "漂", "phrase": "漂亮", "position": 1}, {"character": "饰", "phrase": "饰品", "position": 1}, {"character": "赔", "phrase": "赔钱", "position": 1}
+    ]},
+    {"volume": "2b", "number": 11, "title": "识字·中国美食", "words": [
+      {"character": "烧", "phrase": "烧烤", "position": 1}, {"character": "烤", "phrase": "烤鸭", "position": 1}, {"character": "鸡", "phrase": "鸡蛋", "position": 1}, {"character": "饭", "phrase": "米饭", "position": 2}, {"character": "肉", "phrase": "牛肉", "position": 2}, {"character": "菜", "phrase": "白菜", "position": 2}
+    ]},
+    {"volume": "2b", "number": 12, "title": "寓言二则（亡羊补牢·揠苗助长）", "words": [
+      {"character": "牢", "phrase": "牢固", "position": 1}, {"character": "补", "phrase": "补充", "position": 1}, {"character": "苗", "phrase": "禾苗", "position": 2}, {"character": "助", "phrase": "帮助", "position": 2}, {"character": "焦", "phrase": "焦急", "position": 1}
+    ]},
+    {"volume": "2b", "number": 13, "title": "画杨桃", "words": [
+      {"character": "图", "phrase": "图画", "position": 1}, {"character": "摆", "phrase": "摆放", "position": 1}, {"character": "座", "phrase": "座位", "position": 1}, {"character": "室", "phrase": "教室", "position": 2}, {"character": "严", "phrase": "严肃", "position": 1}
+    ]},
+    {"volume": "2b", "number": 14, "title": "小马过河", "words": [
+      {"character": "愿", "phrase": "愿意", "position": 1}, {"character": "麦", "phrase": "麦子", "position": 1}, {"character": "坊", "phrase": "磨坊", "position": 2}, {"character": "突", "phrase": "突然", "position": 1}, {"character": "拦", "phrase": "拦住", "position": 1}
+    ]},
+    {"volume": "2b", "number": 15, "title": "古诗二首（晓出净慈寺送林子方·绝句）", "words": [
+      {"character": "湖", "phrase": "西湖", "position": 2}, {"character": "莲", "phrase": "莲叶", "position": 1}, {"character": "荷", "phrase": "荷花", "position": 1}, {"character": "碧", "phrase": "碧绿", "position": 1}, {"character": "迟", "phrase": "迟到", "position": 1}, {"character": "融", "phrase": "融化", "position": 1}
+    ]},
+    {"volume": "2b", "number": 16, "title": "雷雨", "words": [
+      {"character": "乌", "phrase": "乌云", "position": 1}, {"character": "黑", "phrase": "黑色", "position": 1}, {"character": "压", "phrase": "压低", "position": 1}, {"character": "垂", "phrase": "垂下", "position": 1}, {"character": "彩", "phrase": "彩虹", "position": 1}
+    ]},
+    {"volume": "2b", "number": 17, "title": "要是你在野外迷了路", "words": [
+      {"character": "针", "phrase": "指南针", "position": 3}, {"character": "忠", "phrase": "忠实", "position": 1}, {"character": "导", "phrase": "向导", "position": 2}, {"character": "稀", "phrase": "稀疏", "position": 1}, {"character": "积", "phrase": "积雪", "position": 1}
+    ]},
+    {"volume": "2b", "number": 18, "title": "太空生活趣事多", "words": [
+      {"character": "杯", "phrase": "水杯", "position": 2}, {"character": "洗", "phrase": "洗澡", "position": 1}, {"character": "睡", "phrase": "睡觉", "position": 1}, {"character": "航", "phrase": "航天", "position": 1}, {"character": "宇", "phrase": "宇宙", "position": 1}
+    ]},
+    {"volume": "2b", "number": 19, "title": "大象的耳朵", "words": [
+      {"character": "扇", "phrase": "扇子", "position": 1}, {"character": "慢", "phrase": "慢慢", "position": 1}, {"character": "遇", "phrase": "遇到", "position": 1}, {"character": "兔", "phrase": "兔子", "position": 1}, {"character": "安", "phrase": "安全", "position": 1}
+    ]},
+    {"volume": "2b", "number": 20, "title": "蜘蛛开店", "words": [
+      {"character": "店", "phrase": "开店", "position": 2}, {"character": "决", "phrase": "决定", "position": 1}, {"character": "编", "phrase": "编织", "position": 1}, {"character": "织", "phrase": "织布", "position": 1}, {"character": "终", "phrase": "终于", "position": 1}
+    ]},
+    {"volume": "2b", "number": 21, "title": "青蛙卖泥塘", "words": [
+      {"character": "卖", "phrase": "卖出", "position": 1}, {"character": "蛙", "phrase": "青蛙", "position": 2}, {"character": "搬", "phrase": "搬家", "position": 1}, {"character": "栽", "phrase": "栽树", "position": 1}, {"character": "喝", "phrase": "喝水", "position": 1}
+    ]},
+    {"volume": "2b", "number": 22, "title": "小毛虫", "words": [
+      {"character": "昆", "phrase": "昆虫", "position": 1}, {"character": "尽", "phrase": "尽力", "position": 1}, {"character": "纺", "phrase": "纺织", "position": 1}, {"character": "规", "phrase": "规律", "position": 1}, {"character": "耐", "phrase": "耐心", "position": 1}
+    ]},
+    {"volume": "2b", "number": 23, "title": "祖先的摇篮", "words": [
+      {"character": "祖", "phrase": "祖先", "position": 1}, {"character": "篮", "phrase": "摇篮", "position": 2}, {"character": "摘", "phrase": "采摘", "position": 2}, {"character": "掏", "phrase": "掏出", "position": 1}, {"character": "逗", "phrase": "逗留", "position": 1}
+    ]},
+    {"volume": "2b", "number": 24, "title": "当世界年纪还小的时候", "words": [
+      {"character": "纪", "phrase": "年纪", "position": 2}, {"character": "世", "phrase": "世界", "position": 1}, {"character": "反", "phrase": "反复", "position": 1}, {"character": "简", "phrase": "简单", "position": 1}, {"character": "比", "phrase": "比方", "position": 1}
+    ]},
+    {"volume": "2b", "number": 25, "title": "羿射九日", "words": [
+      {"character": "射", "phrase": "射箭", "position": 1}, {"character": "值", "phrase": "值得", "position": 1}, {"character": "艰", "phrase": "艰难", "position": 1}, {"character": "炎", "phrase": "炎热", "position": 1}, {"character": "烤", "phrase": "烤焦", "position": 1}
+    ]},
+    {"volume": "3a", "number": 1, "title": "大青树下的小学", "words": [
+      {"character": "晨", "phrase": "早晨", "position": 2}, {"character": "汉", "phrase": "汉族", "position": 1}, {"character": "艳", "phrase": "鲜艳", "position": 2}, {"character": "服", "phrase": "服装", "position": 1}, {"character": "扮", "phrase": "打扮", "position": 2}, {"character": "静", "phrase": "安静", "position": 2}, {"character": "影", "phrase": "影子", "position": 1}
+    ]},
+    {"volume": "3a", "number": 2, "title": "花的学校", "words": [
+      {"character": "落", "phrase": "落下", "position": 1}, {"character": "荒", "phrase": "荒野", "position": 1}, {"character": "笛", "phrase": "口笛", "position": 2}, {"character": "舞", "phrase": "跳舞", "position": 2}, {"character": "狂", "phrase": "狂欢", "position": 1}, {"character": "假", "phrase": "放假", "position": 2}
+    ]},
+    {"volume": "3a", "number": 3, "title": "不懂就要问", "words": [
+      {"character": "诵", "phrase": "背诵", "position": 2}, {"character": "段", "phrase": "段落", "position": 1}, {"character": "练", "phrase": "练习", "position": 1}, {"character": "糊", "phrase": "糊涂", "position": 1}, {"character": "戒", "phrase": "戒尺", "position": 1}, {"character": "楚", "phrase": "清楚", "position": 2}
+    ]},
+    {"volume": "3a", "number": 4, "title": "古诗三首（山行·赠刘景文·夜书所见）", "words": [
+      {"character": "寒", "phrase": "寒冷", "position": 1}, {"character": "径", "phrase": "小径", "position": 2}, {"character": "赠", "phrase": "赠送", "position": 1}, {"character": "菊", "phrase": "菊花", "position": 1}, {"character": "君", "phrase": "君子", "position": 1}, {"character": "橙", "phrase": "橙黄", "position": 1}
+    ]},
+    {"volume": "3a", "number": 5, "title": "铺满金色巴掌的水泥道", "words": [
+      {"character": "泥", "phrase": "水泥", "position": 2}, {"character": "晶", "phrase": "亮晶晶", "position": 2}, {"character": "紧", "phrase": "紧张", "position": 1}, {"character": "排", "phrase": "排列", "position": 1}, {"character": "规", "phrase": "规则", "position": 1}, {"character": "棕", "phrase": "棕色", "position": 1}
+    ]},
+    {"volume": "3a", "number": 6, "title": "秋天的雨", "words": [
+      {"character": "爽", "phrase": "凉爽", "position": 2}, {"character": "邮", "phrase": "邮票", "position": 1}, {"character": "柿", "phrase": "柿子", "position": 1}, {"character": "菠", "phrase": "菠萝", "position": 1}, {"character": "料", "phrase": "颜料", "position": 2}
+    ]},
+    {"volume": "3a", "number": 7, "title": "听听，秋的声音", "words": [
+      {"character": "声", "phrase": "声音", "position": 1}, {"character": "振", "phrase": "振动", "position": 1}, {"character": "掠", "phrase": "掠过", "position": 1}, {"character": "辽", "phrase": "辽阔", "position": 1}, {"character": "吟", "phrase": "吟诵", "position": 1}
+    ]},
+    {"volume": "3a", "number": 8, "title": "卖火柴的小女孩", "words": [
+      {"character": "柴", "phrase": "火柴", "position": 2}, {"character": "裙", "phrase": "围裙", "position": 2}, {"character": "僵", "phrase": "僵硬", "position": 1}, {"character": "蜡", "phrase": "蜡烛", "position": 1}, {"character": "烤", "phrase": "烤鹅", "position": 1}, {"character": "暖", "phrase": "暖和", "position": 1}
+    ]},
+    {"volume": "3a", "number": 9, "title": "那一定会很好", "words": [
+      {"character": "努", "phrase": "努力", "position": 1}, {"character": "拆", "phrase": "拆开", "position": 1}, {"character": "推", "phrase": "推动", "position": 1}, {"character": "舒", "phrase": "舒服", "position": 1}
+    ]},
+    {"volume": "3a", "number": 10, "title": "在牛肚子里旅行", "words": [
+      {"character": "旅", "phrase": "旅行", "position": 1}, {"character": "论", "phrase": "议论", "position": 2}, {"character": "贮", "phrase": "贮藏", "position": 1}, {"character": "悲", "phrase": "悲哀", "position": 1}, {"character": "救", "phrase": "救助", "position": 1}, {"character": "泪", "phrase": "眼泪", "position": 2}
+    ]},
+    {"volume": "3a", "number": 11, "title": "一块奶酪", "words": [
+      {"character": "蚂", "phrase": "蚂蚁", "position": 1}, {"character": "奶", "phrase": "奶酪", "position": 1}, {"character": "款", "phrase": "款待", "position": 1}, {"character": "禁", "phrase": "禁止", "position": 1}, {"character": "犹", "phrase": "犹豫", "position": 1}
+    ]},
+    {"volume": "3a", "number": 12, "title": "总也倒不了的老屋", "words": [
+      {"character": "暴", "phrase": "暴风雨", "position": 1}, {"character": "蜘", "phrase": "蜘蛛", "position": 1}, {"character": "饿", "phrase": "饥饿", "position": 2}, {"character": "饱", "phrase": "吃饱", "position": 2}, {"character": "准", "phrase": "准备", "position": 1}, {"character": "烦", "phrase": "麻烦", "position": 2}
+    ]},
+    {"volume": "3a", "number": 13, "title": "胡萝卜先生的长胡子", "words": [
+      {"character": "胡", "phrase": "胡萝卜", "position": 1}, {"character": "浓", "phrase": "浓密", "position": 1}, {"character": "沿", "phrase": "沿着", "position": 1}, {"character": "肩", "phrase": "肩膀", "position": 1}, {"character": "困", "phrase": "困难", "position": 1}
+    ]},
+    {"volume": "3a", "number": 14, "title": "小狗学叫", "words": [
+      {"character": "模", "phrase": "模糊", "position": 1}, {"character": "忍", "phrase": "忍耐", "position": 1}, {"character": "孤", "phrase": "孤单", "position": 1}, {"character": "仿", "phrase": "模仿", "position": 2}, {"character": "缺", "phrase": "缺点", "position": 1}
+    ]},
+    {"volume": "3a", "number": 15, "title": "搭船的鸟", "words": [
+      {"character": "搭", "phrase": "搭船", "position": 1}, {"character": "亲", "phrase": "母亲", "position": 2}, {"character": "父", "phrase": "父亲", "position": 1}, {"character": "羽", "phrase": "羽毛", "position": 1}, {"character": "翠", "phrase": "翠鸟", "position": 1}, {"character": "捕", "phrase": "捕鱼", "position": 1}
+    ]},
+    {"volume": "3a", "number": 16, "title": "金色的草地", "words": [
+      {"character": "蒲", "phrase": "蒲公英", "position": 1}, {"character": "耍", "phrase": "玩耍", "position": 2}, {"character": "装", "phrase": "假装", "position": 2}, {"character": "绒", "phrase": "绒毛", "position": 1}, {"character": "察", "phrase": "观察", "position": 2}
+    ]},
+    {"volume": "3a", "number": 17, "title": "古诗三首（望天门山·饮湖上初晴后雨·望洞庭）", "words": [
+      {"character": "断", "phrase": "中断", "position": 2}, {"character": "孤", "phrase": "孤帆", "position": 1}, {"character": "初", "phrase": "初晴", "position": 1}, {"character": "镜", "phrase": "明镜", "position": 2}, {"character": "银", "phrase": "银盘", "position": 1}
+    ]},
+    {"volume": "3a", "number": 18, "title": "富饶的西沙群岛", "words": [
+      {"character": "富", "phrase": "富饶", "position": 1}, {"character": "渔", "phrase": "渔业", "position": 1}, {"character": "建", "phrase": "建设", "position": 1}, {"character": "吼", "phrase": "吼叫", "position": 1}, {"character": "威", "phrase": "威武", "position": 1}, {"character": "贝", "phrase": "贝壳", "position": 1}
+    ]},
+    {"volume": "3a", "number": 19, "title": "海滨小城", "words": [
+      {"character": "滨", "phrase": "海滨", "position": 2}, {"character": "灰", "phrase": "灰色", "position": 1}, {"character": "遍", "phrase": "遍地", "position": 1}, {"character": "靠", "phrase": "靠岸", "position": 1}, {"character": "洁", "phrase": "洁白", "position": 1}, {"character": "载", "phrase": "满载", "position": 2}
+    ]},
+    {"volume": "3a", "number": 20, "title": "美丽的小兴安岭", "words": [
+      {"character": "汇", "phrase": "汇成", "position": 1}, {"character": "赏", "phrase": "观赏", "position": 2}, {"character": "挡", "phrase": "挡住", "position": 1}, {"character": "视", "phrase": "视线", "position": 1}, {"character": "宝", "phrase": "宝库", "position": 1}, {"character": "融", "phrase": "融化", "position": 1}
+    ]},
+    {"volume": "3a", "number": 21, "title": "大自然的声音", "words": [
+      {"character": "妙", "phrase": "美妙", "position": 2}, {"character": "演", "phrase": "演奏", "position": 1}, {"character": "琴", "phrase": "手风琴", "position": 3}, {"character": "感", "phrase": "感受", "position": 1}, {"character": "敲", "phrase": "敲打", "position": 1}, {"character": "鸣", "phrase": "鸣叫", "position": 1}
+    ]},
+    {"volume": "3a", "number": 22, "title": "读不完的大书", "words": [
+      {"character": "读", "phrase": "读书", "position": 1}, {"character": "麻", "phrase": "麻雀", "position": 1}, {"character": "副", "phrase": "一副", "position": 2}, {"character": "柔", "phrase": "柔和", "position": 1}, {"character": "描", "phrase": "描述", "position": 1}
+    ]},
+    {"volume": "3a", "number": 23, "title": "父亲、树林和鸟", "words": [
+      {"character": "黎", "phrase": "黎明", "position": 1}, {"character": "雾", "phrase": "雾气", "position": 1}, {"character": "鼻", "phrase": "鼻子", "position": 1}, {"character": "抖", "phrase": "抖动", "position": 1}, {"character": "露", "phrase": "露水", "position": 1}, {"character": "湿", "phrase": "潮湿", "position": 2}
+    ]},
+    {"volume": "3a", "number": 24, "title": "司马光", "words": [
+      {"character": "司", "phrase": "司马", "position": 1}, {"character": "庭", "phrase": "庭院", "position": 1}, {"character": "众", "phrase": "众人", "position": 1}, {"character": "弃", "phrase": "放弃", "position": 2}, {"character": "跌", "phrase": "跌倒", "position": 1}
+    ]},
+    {"volume": "3a", "number": 25, "title": "掌声", "words": [
+      {"character": "掌", "phrase": "掌声", "position": 1}, {"character": "班", "phrase": "班级", "position": 1}, {"character": "默", "phrase": "默默", "position": 1}, {"character": "投", "phrase": "投向", "position": 1}, {"character": "烈", "phrase": "热烈", "position": 2}, {"character": "犹", "phrase": "犹豫", "position": 1}
+    ]},
+    {"volume": "3a", "number": 26, "title": "灰雀", "words": [
+      {"character": "雀", "phrase": "灰雀", "position": 2}, {"character": "郊", "phrase": "郊外", "position": 1}, {"character": "养", "phrase": "养病", "position": 1}, {"character": "粉", "phrase": "粉红", "position": 1}, {"character": "或", "phrase": "或者", "position": 1}, {"character": "诚", "phrase": "诚实", "position": 1}
+    ]},
+    {"volume": "3a", "number": 27, "title": "手术台就是阵地", "words": [
+      {"character": "术", "phrase": "手术", "position": 2}, {"character": "阵", "phrase": "阵地", "position": 1}, {"character": "激", "phrase": "激烈", "position": 1}, {"character": "迅", "phrase": "迅速", "position": 1}, {"character": "连", "phrase": "连续", "position": 1}
+    ]},
+    {"volume": "3b", "number": 1, "title": "古诗三首（绝句·惠崇春江晚景·三衢道中）", "words": [
+      {"character": "迟", "phrase": "迟到", "position": 1}, {"character": "暖", "phrase": "温暖", "position": 2}, {"character": "鸭", "phrase": "鸭子", "position": 1}, {"character": "梅", "phrase": "梅子", "position": 1}, {"character": "溪", "phrase": "小溪", "position": 2}
+    ]},
+    {"volume": "3b", "number": 2, "title": "燕子", "words": [
+      {"character": "燕", "phrase": "燕子", "position": 1}, {"character": "聚", "phrase": "聚拢", "position": 1}, {"character": "增", "phrase": "增添", "position": 1}, {"character": "掠", "phrase": "掠过", "position": 1}, {"character": "偶", "phrase": "偶尔", "position": 1}, {"character": "稻", "phrase": "稻田", "position": 1}
+    ]},
+    {"volume": "3b", "number": 3, "title": "荷花", "words": [
+      {"character": "荷", "phrase": "荷花", "position": 1}, {"character": "挨", "phrase": "挨着", "position": 1}, {"character": "蓬", "phrase": "莲蓬", "position": 2}, {"character": "胀", "phrase": "饱胀", "position": 2}, {"character": "姿", "phrase": "姿势", "position": 1}, {"character": "仿", "phrase": "仿佛", "position": 1}, {"character": "舞", "phrase": "舞蹈", "position": 1}
+    ]},
+    {"volume": "3b", "number": 4, "title": "昆虫备忘录", "words": [
+      {"character": "昆", "phrase": "昆虫", "position": 1}, {"character": "备", "phrase": "备忘", "position": 1}, {"character": "录", "phrase": "记录", "position": 2}, {"character": "复", "phrase": "复眼", "position": 1}, {"character": "苍", "phrase": "苍蝇", "position": 1}
+    ]},
+    {"volume": "3b", "number": 5, "title": "守株待兔", "words": [
+      {"character": "守", "phrase": "看守", "position": 2}, {"character": "待", "phrase": "等待", "position": 2}, {"character": "兔", "phrase": "兔子", "position": 1}, {"character": "折", "phrase": "折断", "position": 1}, {"character": "释", "phrase": "解释", "position": 2}
+    ]},
+    {"volume": "3b", "number": 6, "title": "陶罐和铁罐", "words": [
+      {"character": "陶", "phrase": "陶罐", "position": 1}, {"character": "骄", "phrase": "骄傲", "position": 1}, {"character": "谦", "phrase": "谦虚", "position": 1}, {"character": "懦", "phrase": "懦弱", "position": 1}, {"character": "覆", "phrase": "覆盖", "position": 1}
+    ]},
+    {"volume": "3b", "number": 7, "title": "狮子和鹿", "words": [
+      {"character": "狮", "phrase": "狮子", "position": 1}, {"character": "鹿", "phrase": "鹿角", "position": 1}, {"character": "池", "phrase": "池塘", "position": 1}, {"character": "欣", "phrase": "欣赏", "position": 1}, {"character": "致", "phrase": "别致", "position": 2}
+    ]},
+    {"volume": "3b", "number": 8, "title": "池子与河流", "words": [
+      {"character": "池", "phrase": "池子", "position": 1}, {"character": "流", "phrase": "河流", "position": 2}, {"character": "涯", "phrase": "天涯", "position": 2}, {"character": "碌", "phrase": "忙碌", "position": 2}, {"character": "规", "phrase": "规律", "position": 1}
+    ]},
+    {"volume": "3b", "number": 9, "title": "古诗三首（元日·清明·九月九日忆山东兄弟）", "words": [
+      {"character": "爆", "phrase": "爆竹", "position": 1}, {"character": "屠", "phrase": "屠苏", "position": 1}, {"character": "符", "phrase": "符号", "position": 1}, {"character": "借", "phrase": "借问", "position": 1}, {"character": "牧", "phrase": "牧童", "position": 1}, {"character": "独", "phrase": "独自", "position": 1}, {"character": "佳", "phrase": "佳节", "position": 1}
+    ]},
+    {"volume": "3b", "number": 10, "title": "纸的发明", "words": [
+      {"character": "术", "phrase": "技术", "position": 2}, {"character": "伟", "phrase": "伟大", "position": 1}, {"character": "录", "phrase": "记录", "position": 2}, {"character": "保", "phrase": "保存", "position": 1}, {"character": "经", "phrase": "经验", "position": 1}, {"character": "承", "phrase": "传承", "position": 2}
+    ]},
+    {"volume": "3b", "number": 11, "title": "赵州桥", "words": [
+      {"character": "设", "phrase": "设计", "position": 1}, {"character": "创", "phrase": "创举", "position": 1}, {"character": "坚", "phrase": "坚固", "position": 1}, {"character": "美", "phrase": "美观", "position": 1}, {"character": "雕", "phrase": "雕刻", "position": 1}, {"character": "产", "phrase": "遗产", "position": 2}
+    ]},
+    {"volume": "3b", "number": 12, "title": "一幅名扬中外的画", "words": [
+      {"character": "幅", "phrase": "一幅", "position": 2}, {"character": "扬", "phrase": "名扬", "position": 2}, {"character": "闹", "phrase": "热闹", "position": 2}, {"character": "溜", "phrase": "溜达", "position": 1}, {"character": "摊", "phrase": "摊贩", "position": 1}, {"character": "乘", "phrase": "乘坐", "position": 1}
+    ]},
+    {"volume": "3b", "number": 13, "title": "花钟", "words": [
+      {"character": "芬", "phrase": "芬芳", "position": 1}, {"character": "艳", "phrase": "艳丽", "position": 1}, {"character": "系", "phrase": "关系", "position": 2}, {"character": "苏", "phrase": "苏醒", "position": 1}, {"character": "湿", "phrase": "湿度", "position": 1}
+    ]},
+    {"volume": "3b", "number": 14, "title": "蜜蜂", "words": [
+      {"character": "蜜", "phrase": "蜜蜂", "position": 1}, {"character": "辨", "phrase": "辨认", "position": 1}, {"character": "阻", "phrase": "阻力", "position": 1}, {"character": "检", "phrase": "检查", "position": 1}, {"character": "确", "phrase": "准确", "position": 2}, {"character": "途", "phrase": "沿途", "position": 2}
+    ]},
+    {"volume": "3b", "number": 15, "title": "小虾", "words": [
+      {"character": "虾", "phrase": "小虾", "position": 2}, {"character": "缸", "phrase": "水缸", "position": 2}, {"character": "隙", "phrase": "空隙", "position": 2}, {"character": "掀", "phrase": "掀开", "position": 1}, {"character": "较", "phrase": "比较", "position": 2}
+    ]},
+    {"volume": "3b", "number": 16, "title": "宇宙的另一边", "words": [
+      {"character": "宇", "phrase": "宇宙", "position": 1}, {"character": "秘", "phrase": "秘密", "position": 1}, {"character": "乘", "phrase": "乘法", "position": 1}, {"character": "绪", "phrase": "思绪", "position": 2}, {"character": "篇", "phrase": "篇章", "position": 1}
+    ]},
+    {"volume": "3b", "number": 17, "title": "我变成了一棵树", "words": [
+      {"character": "状", "phrase": "形状", "position": 2}, {"character": "狐", "phrase": "狐狸", "position": 1}, {"character": "窝", "phrase": "鸟窝", "position": 2}, {"character": "续", "phrase": "继续", "position": 2}, {"character": "肠", "phrase": "香肠", "position": 2}
+    ]},
+    {"volume": "3b", "number": 18, "title": "童年的水墨画", "words": [
+      {"character": "墨", "phrase": "水墨", "position": 2}, {"character": "染", "phrase": "染色", "position": 1}, {"character": "竿", "phrase": "竹竿", "position": 2}, {"character": "碎", "phrase": "破碎", "position": 2}, {"character": "拨", "phrase": "拨动", "position": 1}, {"character": "菇", "phrase": "蘑菇", "position": 2}
+    ]},
+    {"volume": "3b", "number": 19, "title": "剃头大师", "words": [
+      {"character": "剃", "phrase": "剃头", "position": 1}, {"character": "鬼", "phrase": "鬼脸", "position": 1}, {"character": "胆", "phrase": "胆量", "position": 1}, {"character": "付", "phrase": "付费", "position": 1}, {"character": "执", "phrase": "执行", "position": 1}
+    ]},
+    {"volume": "3b", "number": 20, "title": "肥皂泡", "words": [
+      {"character": "皂", "phrase": "肥皂", "position": 2}, {"character": "廊", "phrase": "走廊", "position": 2}, {"character": "透", "phrase": "透明", "position": 1}, {"character": "剩", "phrase": "剩下", "position": 1}, {"character": "娇", "phrase": "娇软", "position": 1}
+    ]},
+    {"volume": "3b", "number": 21, "title": "我不能失信", "words": [
+      {"character": "信", "phrase": "失信", "position": 2}, {"character": "叠", "phrase": "重叠", "position": 2}, {"character": "盼", "phrase": "盼望", "position": 1}, {"character": "歉", "phrase": "抱歉", "position": 2}, {"character": "坚", "phrase": "坚决", "position": 1}
+    ]},
+    {"volume": "3b", "number": 22, "title": "我们奇妙的世界", "words": [
+      {"character": "呈", "phrase": "呈现", "position": 1}, {"character": "普", "phrase": "普通", "position": 1}, {"character": "晶", "phrase": "晶莹", "position": 1}, {"character": "珍", "phrase": "珍珠", "position": 1}, {"character": "芒", "phrase": "光芒", "position": 2}
+    ]},
+    {"volume": "3b", "number": 23, "title": "海底世界", "words": [
+      {"character": "攻", "phrase": "攻击", "position": 1}, {"character": "宁", "phrase": "宁静", "position": 1}, {"character": "官", "phrase": "官府", "position": 1}, {"character": "汪", "phrase": "汪洋", "position": 1}, {"character": "危", "phrase": "危险", "position": 1}
+    ]},
+    {"volume": "3b", "number": 24, "title": "火烧云", "words": [
+      {"character": "烧", "phrase": "火烧", "position": 2}, {"character": "凶", "phrase": "凶猛", "position": 1}, {"character": "蹲", "phrase": "蹲着", "position": 1}, {"character": "须", "phrase": "必须", "position": 2}, {"character": "威", "phrase": "威武", "position": 1}
+    ]},
+    {"volume": "3b", "number": 25, "title": "慢性子裁缝和急性子顾客", "words": [
+      {"character": "性", "phrase": "性格", "position": 1}, {"character": "裁", "phrase": "裁缝", "position": 1}, {"character": "顾", "phrase": "顾客", "position": 1}, {"character": "衬", "phrase": "衬衫", "position": 1}, {"character": "负", "phrase": "负责", "position": 1}
+    ]},
+    {"volume": "3b", "number": 26, "title": "方帽子店", "words": [
+      {"character": "帽", "phrase": "帽子", "position": 1}, {"character": "店", "phrase": "店铺", "position": 1}, {"character": "式", "phrase": "式样", "position": 1}, {"character": "流", "phrase": "流行", "position": 1}
+    ]},
+    {"volume": "3b", "number": 27, "title": "漏", "words": [
+      {"character": "漏", "phrase": "漏雨", "position": 1}, {"character": "贼", "phrase": "盗贼", "position": 2}, {"character": "厉", "phrase": "厉害", "position": 1}, {"character": "婆", "phrase": "老婆", "position": 2}, {"character": "越", "phrase": "翻山越岭", "position": 3}
+    ]},
+    {"volume": "3b", "number": 28, "title": "枣核", "words": [
+      {"character": "枣", "phrase": "枣子", "position": 1}, {"character": "核", "phrase": "枣核", "position": 2}, {"character": "爹", "phrase": "爹娘", "position": 1}, {"character": "勤", "phrase": "勤快", "position": 1}, {"character": "聪", "phrase": "聪明", "position": 1}
+    ]}
+  ]
+}

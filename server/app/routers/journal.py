@@ -1,36 +1,24 @@
-import uuid
-
-from fastapi import APIRouter, Depends, HTTPException, status
+from fastapi import APIRouter, Depends, HTTPException
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from ..database import get_db
-from ..deps import get_current_user
-from ..models import Child, Journal, User
+from ..deps import ensure_child_access, get_current_user, load_child
+from ..models import Journal, User
 from ..schemas import JournalOut, JournalPut
 
 router = APIRouter(prefix="/children", tags=["journal"])
 
 
-async def _owned_child(child_id: str, user: User, db: AsyncSession) -> Child:
-    try:
-        cid = uuid.UUID(child_id)
-    except ValueError:
-        raise HTTPException(400, "孩子 ID 无效")
-    child = await db.get(Child, cid)
-    if child is None or child.user_id != user.id:
-        raise HTTPException(404, "孩子不存在")
-    return child
-
-
 @router.get("/{child_id}/journal", response_model=JournalOut)
 async def get_journal(
-    child_id: str, user: User = Depends(get_current_user), db: AsyncSession = Depends(get_db)
+    child_id: str,
+    user: User = Depends(get_current_user),
+    db: AsyncSession = Depends(get_db),
 ):
-    child = await _owned_child(child_id, user, db)
-    journal = await db.scalar(
-        select(Journal).where(Journal.child_id == child.id)
-    )
+    child = await load_child(child_id, db)
+    ensure_child_access(child, user)
+    journal = await db.scalar(select(Journal).where(Journal.child_id == child.id))
     if journal is None:
         raise HTTPException(404, "暂无记录")
     return journal
@@ -43,7 +31,8 @@ async def put_journal(
     user: User = Depends(get_current_user),
     db: AsyncSession = Depends(get_db),
 ):
-    child = await _owned_child(child_id, user, db)
+    child = await load_child(child_id, db)
+    ensure_child_access(child, user)
     # FOR UPDATE 防止并发覆盖，revision 做乐观锁
     journal = await db.scalar(
         select(Journal).where(Journal.child_id == child.id).with_for_update()

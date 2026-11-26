@@ -7,6 +7,7 @@ import 'package:material_ui/material_ui.dart';
 import 'package:share_plus/share_plus.dart';
 
 import 'controller.dart';
+import 'domain.dart';
 import 'web_bridge_stub.dart'
     if (dart.library.js_interop) 'web_bridge.dart'
     as bridge;
@@ -160,13 +161,85 @@ class _SettingsPageState extends ConsumerState<SettingsPage> {
         );
       });
 
+  String _startLabel(Journal journal) {
+    final start = journal.start;
+    if (start == null) return '默认（按册次从后往前，从第一课开始）';
+    final lesson = journal.library.lessons
+        .where((lesson) => lesson.key == start)
+        .firstOrNull;
+    return lesson == null ? start : '${lesson.label} · ${lesson.title}';
+  }
+
+  Future<void> _pickStart(Controller controller) async {
+    final journal = controller.data;
+    final grouped = <String, List<Lesson>>{};
+    for (final lesson in journal.library.lessons) {
+      (grouped[lesson.volume] ??= <Lesson>[]).add(lesson);
+    }
+    final chosen = await showDialog<String>(
+      context: context,
+      builder: (context) => AlertDialog(
+        title: const Text('选择已学起点'),
+        content: SizedBox(
+          width: 420,
+          height: 420,
+          child: ListView(
+            children: [
+              ListTile(
+                title: const Text('默认（从第一课开始）'),
+                subtitle: const Text('按册次从后往前推进'),
+                onTap: () => Navigator.pop(context, ''),
+              ),
+              for (final entry in grouped.entries) ...[
+                Padding(
+                  padding: const EdgeInsets.fromLTRB(16, 14, 16, 4),
+                  child: Text(
+                    volumes[entry.key] ?? entry.key,
+                    style: const TextStyle(
+                      fontWeight: FontWeight.w800,
+                      color: textMuted,
+                      fontSize: 13,
+                    ),
+                  ),
+                ),
+                for (final lesson in entry.value)
+                  ListTile(
+                    dense: true,
+                    title: Text('${lesson.label} · ${lesson.title}'),
+                    onTap: () => Navigator.pop(context, lesson.key),
+                  ),
+              ],
+            ],
+          ),
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(context),
+            child: const Text('取消'),
+          ),
+        ],
+      ),
+    );
+    if (chosen == null) return;
+    journal.start = chosen.isEmpty ? null : chosen;
+    await controller.persist();
+  }
+
   @override
   Widget build(BuildContext context) {
     final controller = ref.watch(controllerProvider);
     final journal = controller.data;
     final hasDraft = journal.draft != null;
-    return PageBody(
-      children: [
+    // 独立路由页面必须有 Scaffold：ListTile 内部的 Ink 需要 Material 祖先，
+    // 之前嵌在 Dashboard 的 Scaffold 里没问题，拆成单独页面后就会空指针。
+    return Scaffold(
+      appBar: AppBar(title: const Text('练习设置')),
+      body: Center(
+        child: ConstrainedBox(
+          constraints: const BoxConstraints(maxWidth: 720),
+          child: ListView(
+            padding: const EdgeInsets.fromLTRB(20, 14, 20, 24),
+            children: [
         const SectionTitle('练习设置', '教材、语音识别和本地资料'),
         Panel(
           child: Column(
@@ -179,38 +252,18 @@ class _SettingsPageState extends ConsumerState<SettingsPage> {
                 ),
               ),
               const Divider(height: 1),
-              Padding(
-                padding: const EdgeInsets.all(16),
-                child: DropdownButtonFormField<String>(
-                  key: ValueKey((journal.library.edition, journal.start)),
-                  initialValue: journal.start ?? '',
-                  isExpanded: true,
-                  decoration: InputDecoration(
-                    labelText: '已学起点',
-                    helperText: hasDraft ? '完成当前练习后可调整' : '从选定课向前练习，保留已练进度',
-                    border: const OutlineInputBorder(),
-                  ),
-                  items: [
-                    const DropdownMenuItem(
-                      value: '',
-                      child: Text('默认从三上最后一课开始'),
-                    ),
-                    for (final lesson in journal.library.lessons)
-                      DropdownMenuItem(
-                        value: lesson.key,
-                        child: Text(
-                          '${lesson.label} · ${lesson.title}',
-                          overflow: TextOverflow.ellipsis,
-                        ),
-                      ),
-                  ],
-                  onChanged: hasDraft || _busy
-                      ? null
-                      : (value) {
-                          journal.start = value == '' ? null : value;
-                          controller.persist();
-                        },
+              ListTile(
+                enabled: !hasDraft && !_busy,
+                leading: const Icon(Icons.flag_outlined),
+                title: const Text('已学起点'),
+                subtitle: Text(
+                  _startLabel(journal),
+                  overflow: TextOverflow.ellipsis,
                 ),
+                trailing: const Icon(Icons.chevron_right),
+                onTap: hasDraft || _busy
+                    ? null
+                    : () => _pickStart(controller),
               ),
               ListTile(
                 enabled: !hasDraft && !_busy,
@@ -231,7 +284,9 @@ class _SettingsPageState extends ConsumerState<SettingsPage> {
                 leading: const Icon(Icons.gesture_rounded, color: forest),
                 title: const Text('简体中文手写模型'),
                 subtitle: Text(
-                  !hasMobileServices
+                  kIsWeb
+                      ? '网页版由服务器识别，无需在此下载模型'
+                      : !hasMobileServices
                       ? '自动识字功能在 iPhone、iPad 或 Android 上使用'
                       : _ready == true
                       ? '模型已就绪，可离线识别'
@@ -302,7 +357,10 @@ class _SettingsPageState extends ConsumerState<SettingsPage> {
               child: CircularProgressIndicator(),
             ),
           ),
-      ],
+            ],
+          ),
+        ),
+      ),
     );
   }
 }

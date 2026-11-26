@@ -4,26 +4,40 @@ import 'package:flutter_riverpod/legacy.dart';
 import 'package:material_ui/material_ui.dart';
 
 import 'controller.dart';
+import 'domain.dart';
 import 'main.dart';
+import 'practice.dart';
 import 'remote.dart';
+import 'settings.dart';
 
 final webSessionProvider = ChangeNotifierProvider<WebSession>((ref) {
   return WebSession();
 });
 
+/// 登录后的界面状态
+enum WebScreen { login, admin, parentList, parentDetail, practice }
+
 class WebSession extends ChangeNotifier {
   ApiClient? _api;
-  bool _isAdmin = false;
+  UserInfo? me;
+  WebScreen screen = WebScreen.login;
+
   List<ChildInfo> children = [];
   List<ParentInfo> parents = [];
-  String? selectedChildId;
+  Map<String, ChildSummary> summaries = {};
+
+  ChildInfo? activeChild;
+  ChildSummary? activeSummary;
   Controller? controller;
+
   bool busy = false;
   String? error;
 
   ApiClient? get api => _api;
   bool get loggedIn => _api != null;
-  bool get isAdmin => _isAdmin;
+  bool get isAdmin => me?.isAdmin ?? false;
+  bool get isParent => me?.isParent ?? false;
+  bool get isStudent => me?.isStudent ?? false;
 
   WebSession() {
     final token = readStoredToken();
@@ -31,24 +45,16 @@ class WebSession extends ChangeNotifier {
     _api = ApiClient(token: token);
     Future(() async {
       try {
-        final me = await _api!.me();
-        _isAdmin = me.isAdmin;
-        await _refresh();
+        me = await _api!.me();
+        await _routeAfterLogin();
         notifyListeners();
       } on Exception {
         _api = null;
+        me = null;
         clearToken();
         notifyListeners();
       }
     });
-  }
-
-  Future<void> _refresh() async {
-    if (_isAdmin) {
-      parents = await _api!.listParents();
-    } else {
-      children = await _api!.listChildren();
-    }
   }
 
   Future<void> _guarded(Future<void> Function() action) async {
@@ -66,53 +72,127 @@ class WebSession extends ChangeNotifier {
     }
   }
 
+  static String _friendly(Object e) =>
+      e is ApiException ? e.message : '操作失败：$e';
+
+  /// 登录后按角色分流：学生直接进练习，家长进汇总，管理员进账号管理
+  Future<void> _routeAfterLogin() async {
+    final user = me;
+    if (user == null) return;
+    if (user.isAdmin) {
+      parents = await _api!.listParents();
+      screen = WebScreen.admin;
+      return;
+    }
+    children = await _api!.listChildren();
+    if (user.isStudent) {
+      if (children.isNotEmpty) {
+        await _enterChild(children.first, practice: true);
+      } else {
+        screen = WebScreen.parentList; // 无档案时给个可见的提示页
+      }
+      return;
+    }
+    await _loadSummaries();
+    screen = WebScreen.parentList;
+  }
+
+  Future<void> _loadSummaries() async {
+    final map = <String, ChildSummary>{};
+    for (final child in children) {
+      try {
+        map[child.id] = await _api!.childSummary(child.id);
+      } on Exception {
+        // 单个孩子统计失败不影响列表展示
+      }
+    }
+    summaries = map;
+  }
+
+  Future<void> _enterChild(ChildInfo child, {required bool practice}) async {
+    activeChild = child;
+    controller = await Controller.load(RemoteJournalStore(_api!, child.id));
+    try {
+      activeSummary = await _api!.childSummary(child.id);
+    } on Exception {
+      activeSummary = null;
+    }
+    screen = practice ? WebScreen.practice : WebScreen.parentDetail;
+  }
+
   Future<void> login(String account, String password) => _guarded(() async {
-        final result = await ApiClient().login(account, password);
-        _api = ApiClient(token: result.token);
-        _isAdmin = result.user.isAdmin;
-        persistToken(result.token);
-        await _refresh();
-      });
+    final result = await ApiClient().login(account, password);
+    _api = ApiClient(token: result.token);
+    me = result.user;
+    persistToken(result.token);
+    await _routeAfterLogin();
+  });
+
+  /// 家长查看某个学生的详情
+  Future<void> openChild(ChildInfo child) => _guarded(() async {
+    await _enterChild(child, practice: false);
+  });
+
+  /// 家长让学生重练
+  Future<void> resetChild(String childId, String scope) => _guarded(() async {
+    await _api!.resetChild(childId, scope: scope);
+    if (activeChild?.id == childId) {
+      controller = await Controller.load(RemoteJournalStore(_api!, childId));
+      activeSummary = await _api!.childSummary(childId);
+    }
+    await _loadSummaries();
+  });
+
+  Future<void> backToList() => _guarded(() async {
+    activeChild = null;
+    activeSummary = null;
+    controller = null;
+    await _loadSummaries();
+    screen = isStudent ? WebScreen.login : WebScreen.parentList;
+  });
+
+  // —— 管理员操作 ——
+  Future<void> refreshParents() => _guarded(() async {
+    parents = await _api!.listParents();
+  });
 
   Future<void> createParent(String username, String password, String name) =>
       _guarded(() async {
         await _api!.createParent(username, password, name);
-        await _refresh();
+        parents = await _api!.listParents();
       });
 
-  Future<void> createChild(String parentId, String name) => _guarded(() async {
-        await _api!.createChild(parentId, name);
-        await _refresh();
-      });
-
-  Future<void> selectChild(String id) => _guarded(() async {
-        selectedChildId = id;
-        controller = null;
-        final store = RemoteJournalStore(_api!, id);
-        controller = await Controller.load(store);
-      });
-
-  void backToChildren() {
-    selectedChildId = null;
-    controller = null;
-    error = null;
-    notifyListeners();
-  }
+  Future<void> createStudent({
+    required String parentId,
+    required String username,
+    required String password,
+    required String studentName,
+    required String childName,
+  }) => _guarded(() async {
+    await _api!.createStudent(
+      parentId: parentId,
+      username: username,
+      password: password,
+      studentName: studentName,
+      childName: childName,
+    );
+    parents = await _api!.listParents();
+  });
 
   void signOut() {
     _api = null;
-    _isAdmin = false;
+    me = null;
     children = [];
     parents = [];
-    selectedChildId = null;
+    summaries = {};
+    activeChild = null;
+    activeSummary = null;
     controller = null;
     error = null;
+    screen = WebScreen.login;
     clearToken();
     notifyListeners();
   }
-
-  static String _friendly(Object e) =>
-      e is ApiException ? e.message : '操作失败，请重试';
 }
 
 class WebApp extends ConsumerWidget {
@@ -121,24 +201,39 @@ class WebApp extends ConsumerWidget {
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     final session = ref.watch(webSessionProvider);
-    // ProviderScope 必须包在 MaterialApp 外层，否则 push 出来的路由
-    // （练习页/结果页）不在覆盖范围内，取 controllerProvider 会抛异常导致灰屏。
-    if (session.controller != null) {
-      final api = session.api!;
+
+    if (session.screen == WebScreen.practice && session.controller != null) {
       return ProviderScope(
+        // 用 controller 身份做 key：家长重练后 controller 会换成新实例，
+        // 强制重建作用域，否则界面仍显示重置前的历史。
+        key: ObjectKey(session.controller),
         overrides: [
           controllerProvider.overrideWith((ref) => session.controller!),
-          apiClientProvider.overrideWithValue(api),
-          // 显式覆盖识别器，避免依赖 apiClientProvider 的继承解析
-          graderProvider.overrideWith((ref) => WebGrader(api)),
+          apiClientProvider.overrideWithValue(session.api!),
+          graderProvider.overrideWith((ref) => WebGrader(session.api!)),
         ],
-        child: appShell(const Dashboard()),
+        // 学生端不显示「设置」：字库/进度等练习设置由家长端负责
+        child: appShell(const Dashboard(showSettings: false)),
       );
     }
-    final home = session.loggedIn
-        ? (session.isAdmin ? const AdminScreen() : const ChildScreen())
-        : const AuthScreen();
-    return appShell(home);
+    if (session.screen == WebScreen.parentDetail &&
+        session.controller != null) {
+      return ProviderScope(
+        key: ObjectKey(session.controller),
+        overrides: [
+          controllerProvider.overrideWith((ref) => session.controller!),
+          apiClientProvider.overrideWithValue(session.api!),
+        ],
+        child: appShell(const ParentDetailScreen()),
+      );
+    }
+    return appShell(switch (session.screen) {
+      WebScreen.admin => const AdminScreen(),
+      WebScreen.parentList => const ParentScreen(),
+      WebScreen.parentDetail => const ParentScreen(),
+      WebScreen.practice => const ParentScreen(),
+      WebScreen.login => const AuthScreen(),
+    });
   }
 }
 
@@ -226,6 +321,12 @@ class _AuthScreenState extends ConsumerState<AuthScreen> {
                 onPressed: session.busy ? null : _submit,
                 child: Text(session.busy ? '请稍候…' : '登录'),
               ),
+              const SizedBox(height: 8),
+              const Text(
+                '账号由管理员创建。学生登录后直接进入练习。',
+                textAlign: TextAlign.center,
+                style: TextStyle(color: textMuted, fontSize: 12),
+              ),
             ],
           ),
         ),
@@ -234,6 +335,329 @@ class _AuthScreenState extends ConsumerState<AuthScreen> {
   }
 }
 
+/// 家长首页：学生列表 + 汇总概览
+class ParentScreen extends ConsumerWidget {
+  const ParentScreen({super.key});
+
+  @override
+  Widget build(BuildContext context, WidgetRef ref) {
+    final session = ref.watch(webSessionProvider);
+    return Scaffold(
+      appBar: AppBar(
+        title: const Text('孩子的练习情况'),
+        actions: [
+          IconButton(
+            icon: const Icon(Icons.refresh),
+            tooltip: '刷新',
+            onPressed: session.busy ? null : () => session.backToList(),
+          ),
+          IconButton(
+            icon: const Icon(Icons.logout),
+            tooltip: '退出登录',
+            onPressed: session.busy ? null : session.signOut,
+          ),
+        ],
+      ),
+      body: Center(
+        child: ConstrainedBox(
+          constraints: const BoxConstraints(maxWidth: 640),
+          child: ListView(
+            padding: const EdgeInsets.all(20),
+            children: [
+              if (session.error != null)
+                Padding(
+                  padding: const EdgeInsets.only(bottom: 12),
+                  child: Text(
+                    session.error!,
+                    style: TextStyle(
+                      color: Theme.of(context).colorScheme.error,
+                    ),
+                  ),
+                ),
+              if (session.busy)
+                const Center(
+                  child: Padding(
+                    padding: EdgeInsets.all(16),
+                    child: CircularProgressIndicator(),
+                  ),
+                ),
+              if (session.children.isEmpty && !session.busy)
+                const Padding(
+                  padding: EdgeInsets.all(24),
+                  child: Text(
+                    '暂未关联学生，请联系管理员添加。',
+                    textAlign: TextAlign.center,
+                    style: TextStyle(color: textMuted),
+                  ),
+                ),
+              for (final child in session.children)
+                _ChildCard(
+                  child: child,
+                  summary: session.summaries[child.id],
+                  onOpen: () => session.openChild(child),
+                ),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+}
+
+class _ChildCard extends StatelessWidget {
+  const _ChildCard({
+    required this.child,
+    required this.summary,
+    required this.onOpen,
+  });
+
+  final ChildInfo child;
+  final ChildSummary? summary;
+  final VoidCallback onOpen;
+
+  @override
+  Widget build(BuildContext context) {
+    final s = summary;
+    final accuracy = s?.accuracy;
+    return Card(
+      margin: const EdgeInsets.only(bottom: 12),
+      child: InkWell(
+        onTap: onOpen,
+        child: Padding(
+          padding: const EdgeInsets.all(16),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Row(
+                children: [
+                  const CircleAvatar(child: Icon(Icons.child_care)),
+                  const SizedBox(width: 12),
+                  Expanded(
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Text(
+                          child.name,
+                          style: const TextStyle(
+                            fontSize: 18,
+                            fontWeight: FontWeight.w800,
+                          ),
+                        ),
+                        Text(
+                          child.studentUsername == null
+                              ? '未绑定学生账号'
+                              : '学生账号 ${child.studentUsername}',
+                          style: const TextStyle(color: textMuted, fontSize: 12),
+                        ),
+                      ],
+                    ),
+                  ),
+                  const Icon(Icons.chevron_right),
+                ],
+              ),
+              const SizedBox(height: 12),
+              Wrap(
+                spacing: 22,
+                runSpacing: 8,
+                children: [
+                  _Metric('${s?.practiceDays ?? 0}', '练习天数'),
+                  _Metric('${s?.totalQuestions ?? 0}', '累计题数'),
+                  _Metric(accuracy == null ? '—' : '$accuracy%', '正确率'),
+                  _Metric('${s?.pending ?? 0}', '待确认'),
+                ],
+              ),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+}
+
+class _Metric extends StatelessWidget {
+  const _Metric(this.value, this.label);
+  final String value;
+  final String label;
+
+  @override
+  Widget build(BuildContext context) => Column(
+    crossAxisAlignment: CrossAxisAlignment.start,
+    children: [
+      Text(
+        value,
+        style: const TextStyle(
+          fontSize: 20,
+          fontWeight: FontWeight.w800,
+          color: forest,
+        ),
+      ),
+      Text(label, style: const TextStyle(color: textMuted, fontSize: 12)),
+    ],
+  );
+}
+
+/// 家长查看单个学生：汇总 + 历史记录 + 重练
+class ParentDetailScreen extends ConsumerWidget {
+  const ParentDetailScreen({super.key});
+
+  Future<void> _confirmReset(
+    BuildContext context,
+    WidgetRef ref,
+    String childId,
+    String scope,
+  ) async {
+    final label = scope == 'today' ? '今天的练习' : '全部练习记录';
+    final ok = await showDialog<bool>(
+      context: context,
+      builder: (context) => AlertDialog(
+        title: const Text('让学生重练？'),
+        content: Text('将清除该学生的$label，之后可以重新开始。'),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(context, false),
+            child: const Text('取消'),
+          ),
+          FilledButton(
+            onPressed: () => Navigator.pop(context, true),
+            child: const Text('确定清除'),
+          ),
+        ],
+      ),
+    );
+    if (ok == true) {
+      await ref.read(webSessionProvider).resetChild(childId, scope);
+    }
+  }
+
+  @override
+  Widget build(BuildContext context, WidgetRef ref) {
+    final session = ref.watch(webSessionProvider);
+    final controller = ref.watch(controllerProvider);
+    final summary = session.activeSummary;
+    final child = session.activeChild;
+    final history = controller.data.history;
+    final accuracy = summary?.accuracy;
+    return Scaffold(
+      appBar: AppBar(
+        title: Text(child == null ? '练习情况' : '${child.name} 的练习情况'),
+        leading: IconButton(
+          icon: const Icon(Icons.arrow_back),
+          onPressed: () => session.backToList(),
+        ),
+      ),
+      body: SafeArea(
+        child: Center(
+          child: ConstrainedBox(
+            constraints: const BoxConstraints(maxWidth: 720),
+            child: ListView(
+              padding: const EdgeInsets.all(20),
+              children: [
+                if (session.error != null)
+                  Padding(
+                    padding: const EdgeInsets.only(bottom: 12),
+                    child: Text(
+                      session.error!,
+                      style: TextStyle(
+                        color: Theme.of(context).colorScheme.error,
+                      ),
+                    ),
+                  ),
+                if (summary != null)
+                  Panel(
+                    color: sage,
+                    child: Padding(
+                      padding: const EdgeInsets.all(16),
+                      child: Wrap(
+                        spacing: 28,
+                        runSpacing: 12,
+                        children: [
+                          _Metric('${summary.practiceDays}', '练习天数'),
+                          _Metric('${summary.totalQuestions}', '累计题数'),
+                          _Metric(
+                            accuracy == null ? '—' : '$accuracy%',
+                            '正确率',
+                          ),
+                          _Metric('${summary.correct}', '正确'),
+                          _Metric('${summary.pending}', '待确认'),
+                        ],
+                      ),
+                    ),
+                  ),
+                const SizedBox(height: 6),
+                Wrap(
+                  spacing: 10,
+                  runSpacing: 8,
+                  children: [
+                    FilledButton.icon(
+                      onPressed: session.busy || child == null
+                          ? null
+                          : () => _confirmReset(
+                              context,
+                              ref,
+                              child.id,
+                              'today',
+                            ),
+                      icon: const Icon(Icons.restart_alt),
+                      label: const Text('重练今天'),
+                    ),
+                    OutlinedButton.icon(
+                      onPressed: session.busy || child == null
+                          ? null
+                          : () => _confirmReset(
+                              context,
+                              ref,
+                              child.id,
+                              'all',
+                            ),
+                      icon: const Icon(Icons.delete_sweep_outlined),
+                      label: const Text('清空全部'),
+                    ),
+                    // 练习设置（字库、已学起点、导入/备份）由家长负责，
+                    // 学生端不提供入口。
+                    OutlinedButton.icon(
+                      onPressed: child == null
+                          ? null
+                          : () => Navigator.of(context).push(
+                              MaterialPageRoute<void>(
+                                builder: (_) => const SettingsPage(),
+                              ),
+                            ),
+                      icon: const Icon(Icons.tune_rounded),
+                      label: const Text('练习设置'),
+                    ),
+                  ],
+                ),
+                const SizedBox(height: 14),
+                const SectionTitle('历史记录', '点开可查看原笔迹与批改结果'),
+                if (history.isEmpty)
+                  const Panel(
+                    child: ListTile(title: Text('还没有提交过练习。')),
+                  )
+                else
+                  for (final practice in history.reversed)
+                    Panel(
+                      child: ListTile(
+                        leading: const Icon(Icons.history_rounded, color: forest),
+                        title: Text(
+                          '${practice.date} · ${practice.daily ? '每日听写' : '重点复习'}',
+                        ),
+                        subtitle: Text(
+                          '正确 ${practice.count(Verdict.correct)} / ${practice.answers.length} · 待确认 ${practice.count(Verdict.pending)}',
+                        ),
+                        trailing: const Icon(Icons.chevron_right),
+                        onTap: () => openResult(context, practice),
+                      ),
+                    ),
+              ],
+            ),
+          ),
+        ),
+      ),
+    );
+  }
+}
+
+/// 管理员：建家长、建学生账号
 class AdminScreen extends ConsumerStatefulWidget {
   const AdminScreen({super.key});
 
@@ -254,28 +678,16 @@ class _AdminScreenState extends ConsumerState<AdminScreen> {
     super.dispose();
   }
 
-  String _parentTitle(ParentInfo p) =>
-      p.name.isEmpty ? p.username : p.name + '（' + p.username + '）';
-
-  String _parentSubtitle(ParentInfo p) {
-    if (p.children.isEmpty) return '孩子：暂无';
-    return '孩子：' + p.children.map((c) => c.name).join('、');
-  }
-
   void _createParent() {
     final username = _username.text.trim();
     final password = _password.text;
     final name = _name.text.trim();
     if (!RegExp(r'^[a-zA-Z0-9]+$').hasMatch(username)) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('账号只能包含英文和数字')),
-      );
+      _toast('账号只能包含英文和数字');
       return;
     }
     if (password.length < 8) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('密码至少 8 位')),
-      );
+      _toast('密码至少 8 位');
       return;
     }
     ref.read(webSessionProvider).createParent(username, password, name);
@@ -284,35 +696,77 @@ class _AdminScreenState extends ConsumerState<AdminScreen> {
     _name.clear();
   }
 
-  Future<void> _addChild(ParentInfo parent) async {
-    final controller = TextEditingController();
-    final dialogTitle = '为 ' +
-        (parent.name.isEmpty ? parent.username : parent.name) +
-        ' 添加孩子';
-    final name = await showDialog<String>(
+  void _toast(String text) {
+    ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(text)));
+  }
+
+  Future<void> _addStudent(ParentInfo parent) async {
+    final username = TextEditingController();
+    final password = TextEditingController();
+    final studentName = TextEditingController();
+    final childName = TextEditingController();
+    final ok = await showDialog<bool>(
       context: context,
       builder: (context) => AlertDialog(
-        title: Text(dialogTitle),
-        content: TextField(
-          controller: controller,
-          autofocus: true,
-          decoration: const InputDecoration(labelText: '孩子名字'),
+        title: Text('为 ${parent.name.isEmpty ? parent.username : parent.name} 添加学生'),
+        content: SingleChildScrollView(
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              TextField(
+                controller: username,
+                decoration: const InputDecoration(
+                  labelText: '学生账号（英文数字）',
+                ),
+              ),
+              TextField(
+                controller: password,
+                decoration: const InputDecoration(labelText: '密码（至少 8 位）'),
+                obscureText: true,
+              ),
+              TextField(
+                controller: studentName,
+                decoration: const InputDecoration(labelText: '学生姓名'),
+              ),
+              TextField(
+                controller: childName,
+                decoration: const InputDecoration(labelText: '练习档案名（可同姓名）'),
+              ),
+            ],
+          ),
         ),
         actions: [
           TextButton(
-            onPressed: () => Navigator.pop(context),
+            onPressed: () => Navigator.pop(context, false),
             child: const Text('取消'),
           ),
           FilledButton(
-            onPressed: () => Navigator.pop(context, controller.text.trim()),
-            child: const Text('添加'),
+            onPressed: () => Navigator.pop(context, true),
+            child: const Text('创建'),
           ),
         ],
       ),
     );
-    if (name != null && name.isNotEmpty) {
-      ref.read(webSessionProvider).createChild(parent.id, name);
+    if (ok != true) return;
+    if (!RegExp(r'^[a-zA-Z0-9]+$').hasMatch(username.text.trim())) {
+      _toast('学生账号只能包含英文和数字');
+      return;
     }
+    if (password.text.length < 8) {
+      _toast('密码至少 8 位');
+      return;
+    }
+    if (childName.text.trim().isEmpty) {
+      _toast('请填写练习档案名');
+      return;
+    }
+    await ref.read(webSessionProvider).createStudent(
+          parentId: parent.id,
+          username: username.text.trim(),
+          password: password.text,
+          studentName: studentName.text.trim(),
+          childName: childName.text.trim(),
+        );
   }
 
   @override
@@ -323,6 +777,11 @@ class _AdminScreenState extends ConsumerState<AdminScreen> {
         title: const Text('管理员 · 账号管理'),
         actions: [
           IconButton(
+            icon: const Icon(Icons.refresh),
+            tooltip: '刷新',
+            onPressed: session.busy ? null : () => session.refreshParents(),
+          ),
+          IconButton(
             icon: const Icon(Icons.logout),
             tooltip: '退出登录',
             onPressed: session.busy ? null : session.signOut,
@@ -331,7 +790,7 @@ class _AdminScreenState extends ConsumerState<AdminScreen> {
       ),
       body: Center(
         child: ConstrainedBox(
-          constraints: const BoxConstraints(maxWidth: 560),
+          constraints: const BoxConstraints(maxWidth: 620),
           child: ListView(
             padding: const EdgeInsets.all(20),
             children: [
@@ -351,9 +810,13 @@ class _AdminScreenState extends ConsumerState<AdminScreen> {
                   child: Column(
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
-                      const Text('添加家长',
-                          style: TextStyle(
-                              fontSize: 18, fontWeight: FontWeight.w700)),
+                      const Text(
+                        '添加家长',
+                        style: TextStyle(
+                          fontSize: 18,
+                          fontWeight: FontWeight.w700,
+                        ),
+                      ),
                       const SizedBox(height: 12),
                       TextField(
                         controller: _username,
@@ -388,7 +851,6 @@ class _AdminScreenState extends ConsumerState<AdminScreen> {
                   ),
                 ),
               ),
-              const SizedBox(height: 8),
               if (session.busy)
                 const Center(
                   child: Padding(
@@ -396,106 +858,61 @@ class _AdminScreenState extends ConsumerState<AdminScreen> {
                     child: CircularProgressIndicator(),
                   ),
                 ),
-              for (final p in session.parents)
+              for (final parent in session.parents)
                 Card(
+                  margin: const EdgeInsets.only(top: 12),
                   child: Padding(
                     padding: const EdgeInsets.all(16),
-                    child: Row(
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
-                        Expanded(
-                          child: Column(
-                            crossAxisAlignment: CrossAxisAlignment.start,
-                            children: [
-                              Text(
-                                _parentTitle(p),
-                                style: const TextStyle(
-                                    fontWeight: FontWeight.w700),
-                              ),
-                              Text(
-                                _parentSubtitle(p),
-                                style: const TextStyle(color: textMuted),
-                              ),
-                            ],
-                          ),
+                        Text(
+                          parent.name.isEmpty
+                              ? parent.username
+                              : '${parent.name}（${parent.username}）',
+                          style: const TextStyle(fontWeight: FontWeight.w700),
                         ),
-                        TextButton.icon(
-                          onPressed:
-                              session.busy ? null : () => _addChild(p),
-                          icon: const Icon(Icons.child_care),
-                          label: const Text('添加孩子'),
+                        const SizedBox(height: 4),
+                        if (parent.children.isEmpty)
+                          const Text(
+                            '还没有学生账号',
+                            style: TextStyle(color: textMuted, fontSize: 12),
+                          )
+                        else
+                          for (final c in parent.children)
+                            Padding(
+                              padding: const EdgeInsets.only(top: 2),
+                              child: Row(
+                                children: [
+                                  const Icon(
+                                    Icons.person_outline,
+                                    size: 16,
+                                    color: textMuted,
+                                  ),
+                                  const SizedBox(width: 6),
+                                  Expanded(
+                                    child: Text(
+                                      c.studentUsername == null
+                                          ? '${c.name}（未绑定学生账号）'
+                                          : '${c.name} · 账号 ${c.studentUsername}',
+                                      style: const TextStyle(fontSize: 13),
+                                    ),
+                                  ),
+                                ],
+                              ),
+                            ),
+                        const SizedBox(height: 8),
+                        Align(
+                          alignment: Alignment.centerRight,
+                          child: TextButton.icon(
+                            onPressed:
+                                session.busy ? null : () => _addStudent(parent),
+                            icon: const Icon(Icons.person_add_alt),
+                            label: const Text('添加学生'),
+                          ),
                         ),
                       ],
                     ),
-                  ),
-                ),
-            ],
-          ),
-        ),
-      ),
-    );
-  }
-}
-
-class ChildScreen extends ConsumerWidget {
-  const ChildScreen({super.key});
-
-  @override
-  Widget build(BuildContext context, WidgetRef ref) {
-    final session = ref.watch(webSessionProvider);
-    return Scaffold(
-      appBar: AppBar(
-        title: const Text('选择孩子'),
-        actions: [
-          IconButton(
-            icon: const Icon(Icons.logout),
-            tooltip: '退出登录',
-            onPressed: session.busy ? null : session.signOut,
-          ),
-        ],
-      ),
-      body: Center(
-        child: ConstrainedBox(
-          constraints: const BoxConstraints(maxWidth: 480),
-          child: ListView(
-            padding: const EdgeInsets.all(20),
-            children: [
-              if (session.error != null)
-                Padding(
-                  padding: const EdgeInsets.only(bottom: 12),
-                  child: Text(
-                    session.error!,
-                    style: TextStyle(
-                      color: Theme.of(context).colorScheme.error,
-                    ),
-                  ),
-                ),
-              if (session.busy)
-                const Center(
-                  child: Padding(
-                    padding: EdgeInsets.all(24),
-                    child: CircularProgressIndicator(),
-                  ),
-                ),
-              if (session.children.isEmpty && !session.busy)
-                const Padding(
-                  padding: EdgeInsets.all(24),
-                  child: Text(
-                    '暂未关联孩子，请联系管理员添加。',
-                    textAlign: TextAlign.center,
-                    style: TextStyle(color: textMuted),
-                  ),
-                ),
-              for (final child in session.children)
-                Card(
-                  child: ListTile(
-                    leading: const CircleAvatar(
-                      child: Icon(Icons.child_care),
-                    ),
-                    title: Text(child.name),
-                    trailing: const Icon(Icons.chevron_right),
-                    onTap: session.busy
-                        ? null
-                        : () => session.selectChild(child.id),
                   ),
                 ),
             ],

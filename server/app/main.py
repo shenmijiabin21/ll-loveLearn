@@ -29,6 +29,7 @@ async def lifespan(app: FastAPI):
                     password_hash=hash_password(settings.admin_password),
                     display_name="管理员",
                     is_admin=True,
+                    role=models.ROLE_ADMIN,
                 )
             )
             await session.commit()

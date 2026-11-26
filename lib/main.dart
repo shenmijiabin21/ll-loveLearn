@@ -5,6 +5,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:material_ui/material_ui.dart';
 
 import 'controller.dart';
+import 'copy.dart';
 import 'domain.dart';
 import 'practice.dart';
 import 'settings.dart';
@@ -118,7 +119,10 @@ class DictationApp extends ConsumerWidget {
 }
 
 class Dashboard extends ConsumerStatefulWidget {
-  const Dashboard({super.key});
+  const Dashboard({super.key, this.showSettings = true});
+
+  /// 学生端为 false：练习设置由家长在家长端完成，学生只专注练习
+  final bool showSettings;
 
   @override
   ConsumerState<Dashboard> createState() => _DashboardState();
@@ -144,16 +148,19 @@ class _DashboardState extends ConsumerState<Dashboard> {
 
   @override
   Widget build(BuildContext context) {
-    const destinations = [
+    final destinations = <(IconData, String)>[
       (Icons.edit_note_rounded, '今日'),
+      (Icons.gesture_rounded, '练习'),
       (Icons.bookmark_outline_rounded, '重点'),
       (Icons.bar_chart_rounded, '统计'),
-      (Icons.tune_rounded, '设置'),
+      if (widget.showSettings) (Icons.tune_rounded, '设置'),
     ];
-    final content = switch (_section) {
+    final section = _section.clamp(0, destinations.length - 1);
+    final content = switch (section) {
       0 => const TodayPage(),
-      1 => const FocusPage(),
-      2 => const StatsPage(),
+      1 => const CopyListPage(),
+      2 => const FocusPage(),
+      3 => const StatsPage(),
       _ => const SettingsPage(),
     };
     final wide = MediaQuery.sizeOf(context).width >= 760;
@@ -170,18 +177,12 @@ class _DashboardState extends ConsumerState<Dashboard> {
           ],
         ),
         actions: [
-          if (kIsWeb) ...[
-            IconButton(
-              icon: const Icon(Icons.people_outline),
-              tooltip: '切换孩子',
-              onPressed: () => ref.read(webSessionProvider).backToChildren(),
-            ),
+          if (kIsWeb)
             IconButton(
               icon: const Icon(Icons.logout),
               tooltip: '退出登录',
               onPressed: () => ref.read(webSessionProvider).signOut(),
             ),
-          ],
         ],
       ),
       body: SafeArea(
@@ -191,7 +192,7 @@ class _DashboardState extends ConsumerState<Dashboard> {
           children: [
             if (wide) ...[
               NavigationRail(
-                selectedIndex: _section,
+                selectedIndex: section,
                 onDestinationSelected: (index) =>
                     setState(() => _section = index),
                 labelType: NavigationRailLabelType.all,
@@ -219,7 +220,7 @@ class _DashboardState extends ConsumerState<Dashboard> {
       bottomNavigationBar: wide
           ? null
           : NavigationBar(
-              selectedIndex: _section,
+              selectedIndex: section,
               onDestinationSelected: (index) =>
                   setState(() => _section = index),
               destinations: [
@@ -408,7 +409,7 @@ class TodayPage extends ConsumerWidget {
             subtitle: Text(
               data.library.sample
                   ? '示例字库 · 设置中可导入已核验字库'
-                  : '按三上、二下、二上顺序，各册从后往前练习',
+                  : '按三下、三上、二下、二上顺序，各册从后往前练习',
             ),
           ),
         ),
