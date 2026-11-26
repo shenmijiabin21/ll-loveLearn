@@ -74,7 +74,8 @@ void main() {
 
     await tester.tap(find.widgetWithText(ChoiceChip, '5'));
     await tester.pumpAndSettle();
-    // 精确限定到页面按钮；弹窗按钮文案相同，避免将来时序变化导致多匹配。
+    // 限定到页面按钮（弹窗里同名按钮只在点击后出现），
+    // 顺带断言此刻仍在作答页。
     expect(find.byType(AlertDialog), findsNothing);
     await tester.tap(find.widgetWithText(FilledButton, '提交批改'));
     await tester.pumpAndSettle();
