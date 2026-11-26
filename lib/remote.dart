@@ -3,14 +3,15 @@ import 'dart:convert';
 import 'package:flutter/foundation.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:http/http.dart' as http;
-import 'package:web/web.dart' as web;
 
 import 'device.dart';
 import 'domain.dart';
 import 'storage.dart';
+import 'token_store_stub.dart'
+    if (dart.library.js_interop) 'token_store_web.dart'
+    as token;
 
 const apiBase = String.fromEnvironment('API_BASE_URL', defaultValue: '/api');
-const _tokenKey = 'll-love-learn-token';
 
 class ApiException implements Exception {
   ApiException(this.status, this.message);
@@ -421,29 +422,16 @@ final graderProvider = Provider<Grader>((ref) {
 });
 
 // —— token 持久化（仅 web，localStorage）——
-String? readStoredToken() {
-  if (!kIsWeb) return null;
-  try {
-    return web.window.localStorage.getItem(_tokenKey);
-  } on Exception {
-    return null;
-  }
-}
+// 具体实现走条件导入，避免 remote.dart 顶层引入 package:web ——
+// 那会让 VM 平台的测试因为 dart:js_interop 不可用而无法加载。
+String? readStoredToken() => kIsWeb ? token.readToken() : null;
 
-void persistToken(String token) {
+void persistToken(String value) {
   if (!kIsWeb) return;
-  try {
-    web.window.localStorage.setItem(_tokenKey, token);
-  } on Exception {
-    // 忽略存储失败，保持内存态即可
-  }
+  token.writeToken(value);
 }
 
 void clearToken() {
   if (!kIsWeb) return;
-  try {
-    web.window.localStorage.removeItem(_tokenKey);
-  } on Exception {
-    // 忽略
-  }
+  token.removeToken();
 }
