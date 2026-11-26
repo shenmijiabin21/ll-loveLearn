@@ -560,7 +560,11 @@ class _ParentScreenState extends ConsumerState<ParentScreen>
   void initState() {
     super.initState();
     WidgetsBinding.instance.addObserver(this);
-    _startPolling();
+    // 按当前可见状态决定要不要起轮询：挂载时页面可能已经在后台
+    final state = WidgetsBinding.instance.lifecycleState;
+    if (state == null || state == AppLifecycleState.resumed) {
+      _startPolling();
+    }
   }
 
   /// 5 秒刷新一次：孩子端每 30 秒上报一次心跳，但家长看到的是「已练 N 分钟」，
