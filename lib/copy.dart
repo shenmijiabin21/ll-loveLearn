@@ -8,7 +8,6 @@ import 'package:material_ui/material_ui.dart';
 import 'controller.dart';
 import 'domain.dart';
 import 'main.dart';
-import 'math_preview.dart';
 import 'strokes.dart';
 
 /// 练习（临摹）入口：列出今天的字，点开逐笔引导练习
@@ -27,17 +26,6 @@ class CopyListPage extends ConsumerWidget {
     return PageBody(
       children: [
         const SectionTitle('练习', '照着笔顺一笔一笔写，写对才出现下一笔'),
-        Panel(
-          child: ListTile(
-            leading: const Icon(Icons.calculate_outlined, color: forest),
-            title: const Text('数学 · 分步练习'),
-            subtitle: const Text('一步一步填，每步单独判定（体验版）'),
-            trailing: const Icon(Icons.chevron_right),
-            onTap: () => Navigator.of(context).push(
-              MaterialPageRoute<void>(builder: (_) => const MathListPage()),
-            ),
-          ),
-        ),
         if (questions.isEmpty)
           const Panel(child: ListTile(title: Text('今天还没有可练习的字。')))
         else

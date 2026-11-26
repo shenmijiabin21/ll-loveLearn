@@ -2,7 +2,7 @@ import 'package:material_ui/material_ui.dart';
 
 // 主题与通用版式组件。
 //
-// 单独成文件是为了让不依赖练习流程的页面（例如数学分步练习）
+// 单独成文件是为了让不依赖练习流程的页面（例如批改结果、统计）
 // 也能使用同一套配色与版式，而不必 import main.dart —— main.dart 会经由
 // practice.dart 引入 remote.dart 等业务模块，测试里没必要背上这些依赖。
 
