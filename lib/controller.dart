@@ -68,6 +68,16 @@ class Controller extends ChangeNotifier {
     return practice;
   }
 
+  /// 立即落盘尚未写出的修改（网页端有合并窗口，提交/离开前需要）
+  Future<bool> flush() async {
+    try {
+      await store.flush();
+      return true;
+    } on Exception {
+      return false;
+    }
+  }
+
   Future<bool> submit(Practice practice, List<Grade> grades) async {
     if (data.draft != practice || grades.length != practice.answers.length) {
       return false;

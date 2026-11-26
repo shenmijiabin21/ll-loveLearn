@@ -27,6 +27,10 @@ class User(Base):
     display_name: Mapped[str] = mapped_column(String(100), default="")
     # 兼容字段：管理员恒为 True，与 role == "admin" 等价
     is_admin: Mapped[bool] = mapped_column(default=False)
+    # 改密后递增，使旧令牌立即失效
+    token_version: Mapped[int] = mapped_column(
+        BigInteger, default=0, server_default="0"
+    )
     role: Mapped[str] = mapped_column(
         String(16), default=ROLE_PARENT, server_default=ROLE_PARENT
     )

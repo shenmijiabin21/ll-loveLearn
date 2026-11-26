@@ -106,18 +106,33 @@ class Recognizer:
         exp = np.exp(shifted)
         return exp / exp.sum(axis=1, keepdims=True)
 
-    def _single_char(self, image, top: int = 3):
+    def _single_char(self, image, top: int = 3, cols=None, names=None):
+        """按最强时间步解码。cols/names 给定时只在候选字集合内比较。"""
         import numpy as np
 
         probs = self._timestep_probs(image)
-        sub = probs[:, self._han_cols]
+        sub = probs[:, self._han_cols if cols is None else cols]
         mass = sub.sum(axis=1)
         step = int(np.argmax(mass))
         if mass[step] <= 0:
             return []
         q = sub[step] / mass[step]
         order = np.argsort(q)[::-1][:top]
-        return [(self._han_chars[int(i)], float(q[int(i)])) for i in order]
+        lookup = self._han_chars if names is None else names
+        return [(lookup[int(i)], float(q[int(i)])) for i in order]
+
+    def _allowed_index(self, allowed):
+        """把客户端给的字集合映射到输出层列号，只保留模型认得的汉字。"""
+        import numpy as np
+
+        charset = self._charset
+        if not charset or not allowed:
+            return None, None
+        _, index = charset
+        picked = [c for c in dict.fromkeys(allowed) if c in index]
+        if len(picked) < 2:
+            return None, None
+        return np.array([index[c] for c in picked]), picked
 
     # —— 兜底：CTC 行解码 ——
     def _line_decode(self, strokes):
@@ -144,19 +159,44 @@ class Recognizer:
                     found[text] = score
         return sorted(found.items(), key=lambda kv: kv[1], reverse=True)
 
+    def _constrained_top(self, expected, variants, allowed):
+        """在本次练习的候选字集合内解码，返回排名第一的字。
+
+        开集识别在这些字之间必然给出微弱差别（每步总有最大值），这个差别
+        可能是噪声，所以只在目标字排第一时用来放行「正确」；结果不用于判错。
+        """
+        if not allowed or expected not in allowed:
+            return None
+        cols, names = self._allowed_index(allowed)
+        if cols is None:
+            return None
+        merged: dict[str, float] = {}
+        for image in variants:
+            for char, score in self._single_char(image, cols=cols, names=names):
+                if merged.get(char, 0.0) < score:
+                    merged[char] = score
+        if not merged:
+            return None
+        return max(merged.items(), key=lambda kv: kv[1])[0]
+
     # —— 判定 ——
     def classify(self, expected: str, strokes, allowed: Optional[list[str]] = None):
         """返回 {'verdict': correct|wrong|pending, 'candidates': [str]}。
 
-        allowed 仅为接口兼容保留，不参与限定。
+        allowed 是本次练习涉及的字。它只用来把「待确认」升级为「正确」：
+        开集识别认定正确 -> 正确；否则在本次练习的字里目标字排第一 -> 正确
+        （这些字概率基本持平时排第一多半是噪声，但即便放行也无害——目标字
+        本来就在练习里，家长仍可在结果页订正）。开集已给出的 pending /
+        wrong 一律保持原样，因此不会新增误判。
         """
         if not strokes:
             return {"verdict": "blank", "candidates": []}
 
         self._load()
         if self._rec is not None and self._han_cols is not None:
+            variants = self._variants(strokes)
             merged: dict[str, float] = {}
-            for image in self._variants(strokes):
+            for image in variants:
                 for char, score in self._single_char(image):
                     if merged.get(char, 0.0) < score:
                         merged[char] = score
@@ -171,6 +211,9 @@ class Recognizer:
                     and ranked[0][1] >= self.min_conf_wrong
                 ):
                     return {"verdict": "wrong", "candidates": labels}
+                constrained = self._constrained_top(expected, variants, allowed)
+                if constrained == expected:
+                    return {"verdict": "correct", "candidates": labels}
                 return {"verdict": "pending", "candidates": labels}
 
         # 兜底：行解码结果里找目标字

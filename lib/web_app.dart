@@ -1,3 +1,5 @@
+import 'dart:async';
+
 import 'package:flutter/foundation.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_riverpod/legacy.dart';
@@ -98,15 +100,18 @@ class WebSession extends ChangeNotifier {
   }
 
   Future<void> _loadSummaries() async {
-    final map = <String, ChildSummary>{};
-    for (final child in children) {
-      try {
-        map[child.id] = await _api!.childSummary(child.id);
-      } on Exception {
-        // 单个孩子统计失败不影响列表展示
-      }
-    }
-    summaries = map;
+    // 并发拉取：孩子较多时不再串行等待 N 个 RTT
+    final results = await Future.wait([
+      for (final child in children)
+        _api!
+            .childSummary(child.id)
+            .then<ChildSummary?>((value) => value)
+            .catchError((Object _) => null),
+    ]);
+    summaries = {
+      for (final (index, summary) in results.indexed)
+        if (summary != null) children[index].id: summary,
+    };
   }
 
   Future<void> _enterChild(ChildInfo child, {required bool practice}) async {
@@ -135,10 +140,19 @@ class WebSession extends ChangeNotifier {
 
   /// 家长让学生重练
   Future<void> resetChild(String childId, String scope) => _guarded(() async {
-    await _api!.resetChild(childId, scope: scope);
+    // 带上本机日期：服务器时区可能与本机差一天，否则会清错日子
+    await _api!.resetChild(
+      childId,
+      scope: scope,
+      date: day(DateTime.now()),
+    );
     if (activeChild?.id == childId) {
       controller = await Controller.load(RemoteJournalStore(_api!, childId));
-      activeSummary = await _api!.childSummary(childId);
+      try {
+        activeSummary = await _api!.childSummary(childId);
+      } on Exception {
+        activeSummary = null;
+      }
     }
     await _loadSummaries();
   });
@@ -151,10 +165,60 @@ class WebSession extends ChangeNotifier {
     screen = isStudent ? WebScreen.login : WebScreen.parentList;
   });
 
+  /// 只刷新汇总，不动当前打开的孩子（列表页「刷新」按钮用）
+  Future<void> refreshSummaries() => _guarded(_loadSummaries);
+
   // —— 管理员操作 ——
   Future<void> refreshParents() => _guarded(() async {
     parents = await _api!.listParents();
   });
+
+  /// 给已有孩子档案补绑学生账号，保留历史记录
+  Future<bool> bindStudent({
+    required String childId,
+    required String username,
+    required String password,
+    required String displayName,
+  }) async {
+    var ok = false;
+    await _guarded(() async {
+      await _api!.bindStudent(
+        childId: childId,
+        username: username,
+        password: password,
+        displayName: displayName,
+      );
+      parents = await _api!.listParents();
+      ok = true;
+    });
+    return ok;
+  }
+
+  /// 给已有的家长账号新建一条孩子练习档案（暂不绑定学生登录）
+  Future<bool> addChild({
+    required String parentId,
+    required String name,
+  }) async {
+    var ok = false;
+    await _guarded(() async {
+      await _api!.createChild(parentId, name);
+      parents = await _api!.listParents();
+      ok = true;
+    });
+    return ok;
+  }
+
+  /// 修改当前账号密码：其它设备上的旧令牌会立即失效
+  Future<bool> changePassword(String current, String next) async {
+    var ok = false;
+    await _guarded(() async {
+      final result = await _api!.changePassword(current, next);
+      _api = ApiClient(token: result.token);
+      persistToken(result.token);
+      ok = true;
+    });
+    return ok;
+  }
 
   Future<void> createParent(String username, String password, String name) =>
       _guarded(() async {
@@ -180,6 +244,13 @@ class WebSession extends ChangeNotifier {
   });
 
   void signOut() {
+    // 尽力让服务端作废令牌；离线或后端不可用时也不阻塞本地退出
+    final api = _api;
+    if (api != null) {
+      unawaited(
+        api.post('/auth/logout', const <String, Object>{}).catchError((_) {}),
+      );
+    }
     _api = null;
     me = null;
     children = [];
@@ -195,8 +266,108 @@ class WebSession extends ChangeNotifier {
   }
 }
 
+/// 把会话错误以 SnackBar 显示一次，避免挤在页面顶部被忽略
+class SessionErrorListener extends ConsumerStatefulWidget {
+  const SessionErrorListener({super.key, required this.child});
+  final Widget child;
+
+  @override
+  ConsumerState<SessionErrorListener> createState() =>
+      _SessionErrorListenerState();
+}
+
+class _SessionErrorListenerState extends ConsumerState<SessionErrorListener> {
+  String? _shown;
+
+  @override
+  Widget build(BuildContext context) {
+    ref.listen<WebSession>(webSessionProvider, (previous, next) {
+      final error = next.error;
+      if (error == null || error == _shown) return;
+      _shown = error;
+      WidgetsBinding.instance.addPostFrameCallback((_) {
+        if (!mounted) return;
+        ScaffoldMessenger.of(context)
+          ..hideCurrentSnackBar()
+          ..showSnackBar(SnackBar(content: Text(error)));
+      });
+    });
+    return widget.child;
+  }
+}
+
+/// 修改当前登录账号的密码（网页端学生/家长/管理员通用）
+Future<void> showChangePasswordDialog(BuildContext context, WidgetRef ref) async {
+  final current = TextEditingController();
+  final next = TextEditingController();
+  final confirm = TextEditingController();
+  final ok = await showDialog<bool>(
+    context: context,
+    builder: (context) => AlertDialog(
+      title: const Text('修改密码'),
+      content: SingleChildScrollView(
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            TextField(
+              controller: current,
+              decoration: const InputDecoration(labelText: '当前密码'),
+              obscureText: true,
+            ),
+            TextField(
+              controller: next,
+              decoration: const InputDecoration(labelText: '新密码（至少 8 位）'),
+              obscureText: true,
+            ),
+            TextField(
+              controller: confirm,
+              decoration: const InputDecoration(labelText: '再次输入新密码'),
+              obscureText: true,
+            ),
+          ],
+        ),
+      ),
+      actions: [
+        TextButton(
+          onPressed: () => Navigator.pop(context, false),
+          child: const Text('取消'),
+        ),
+        FilledButton(
+          onPressed: () => Navigator.pop(context, true),
+          child: const Text('保存'),
+        ),
+      ],
+    ),
+  );
+  if (ok != true) return;
+  final messenger = ScaffoldMessenger.of(context);
+  if (next.text.length < 8) {
+    messenger.showSnackBar(const SnackBar(content: Text('新密码至少 8 位')));
+    return;
+  }
+  if (next.text != confirm.text) {
+    messenger.showSnackBar(const SnackBar(content: Text('两次输入的新密码不一致')));
+    return;
+  }
+  final changed = await ref
+      .read(webSessionProvider)
+      .changePassword(current.text, next.text);
+  if (!changed) return;
+  messenger.showSnackBar(
+    const SnackBar(content: Text('密码已更新，其它设备需要重新登录')),
+  );
+}
+
 class WebApp extends ConsumerWidget {
   const WebApp({super.key});
+
+  /// 用 MaterialApp.builder 包住导航器：这样 SnackBar 才能挂到页面的
+  /// ScaffoldMessenger 上（包在 MaterialApp 外面会找不到祖先）
+  Widget _wrap(Widget home) => appShell(
+        home,
+        builder: (context, child) =>
+            SessionErrorListener(child: child ?? const SizedBox.shrink()),
+      );
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
@@ -213,7 +384,7 @@ class WebApp extends ConsumerWidget {
           graderProvider.overrideWith((ref) => WebGrader(session.api!)),
         ],
         // 学生端不显示「设置」：字库/进度等练习设置由家长端负责
-        child: appShell(const Dashboard(showSettings: false)),
+        child: _wrap(const Dashboard(showSettings: false)),
       );
     }
     if (session.screen == WebScreen.parentDetail &&
@@ -224,10 +395,10 @@ class WebApp extends ConsumerWidget {
           controllerProvider.overrideWith((ref) => session.controller!),
           apiClientProvider.overrideWithValue(session.api!),
         ],
-        child: appShell(const ParentDetailScreen()),
+        child: _wrap(const ParentDetailScreen()),
       );
     }
-    return appShell(switch (session.screen) {
+    return _wrap(switch (session.screen) {
       WebScreen.admin => const AdminScreen(),
       WebScreen.parentList => const ParentScreen(),
       WebScreen.parentDetail => const ParentScreen(),
@@ -309,14 +480,7 @@ class _AuthScreenState extends ConsumerState<AuthScreen> {
                 onSubmitted: (_) => _submit(),
               ),
               const SizedBox(height: 12),
-              if (session.error != null)
-                Text(
-                  session.error!,
-                  style: TextStyle(
-                    color: Theme.of(context).colorScheme.error,
-                  ),
-                ),
-              const SizedBox(height: 12),
+              // 登录失败由 SessionErrorListener 用 SnackBar 提示
               FilledButton(
                 onPressed: session.busy ? null : _submit,
                 child: Text(session.busy ? '请稍候…' : '登录'),
@@ -349,7 +513,7 @@ class ParentScreen extends ConsumerWidget {
           IconButton(
             icon: const Icon(Icons.refresh),
             tooltip: '刷新',
-            onPressed: session.busy ? null : () => session.backToList(),
+            onPressed: session.busy ? null : () => session.refreshSummaries(),
           ),
           IconButton(
             icon: const Icon(Icons.logout),
@@ -364,16 +528,6 @@ class ParentScreen extends ConsumerWidget {
           child: ListView(
             padding: const EdgeInsets.all(20),
             children: [
-              if (session.error != null)
-                Padding(
-                  padding: const EdgeInsets.only(bottom: 12),
-                  child: Text(
-                    session.error!,
-                    style: TextStyle(
-                      color: Theme.of(context).colorScheme.error,
-                    ),
-                  ),
-                ),
               if (session.busy)
                 const Center(
                   child: Padding(
@@ -552,16 +706,6 @@ class ParentDetailScreen extends ConsumerWidget {
             child: ListView(
               padding: const EdgeInsets.all(20),
               children: [
-                if (session.error != null)
-                  Padding(
-                    padding: const EdgeInsets.only(bottom: 12),
-                    child: Text(
-                      session.error!,
-                      style: TextStyle(
-                        color: Theme.of(context).colorScheme.error,
-                      ),
-                    ),
-                  ),
                 if (summary != null)
                   Panel(
                     color: sage,
@@ -690,14 +834,142 @@ class _AdminScreenState extends ConsumerState<AdminScreen> {
       _toast('密码至少 8 位');
       return;
     }
-    ref.read(webSessionProvider).createParent(username, password, name);
-    _username.clear();
-    _password.clear();
-    _name.clear();
+    // 提交成功后清空；失败时保留输入，避免用户重填
+    ref.read(webSessionProvider).createParent(username, password, name).then((
+      _,
+    ) {
+      if (!mounted) return;
+      final session = ref.read(webSessionProvider);
+      if (session.error != null) return;
+      _username.clear();
+      _password.clear();
+      _name.clear();
+    });
   }
 
   void _toast(String text) {
     ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(text)));
+  }
+
+  /// 给已有档案（可能已有练习记录）补绑学生账号
+  Future<void> _bindStudent(ParentInfo parent, ChildInfo child) async {
+    final username = TextEditingController();
+    final password = TextEditingController();
+    final display = TextEditingController();
+    final ok = await showDialog<bool>(
+      context: context,
+      builder: (context) => AlertDialog(
+        title: Text('为「${child.name}」开通学生登录'),
+        content: SingleChildScrollView(
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              const Text(
+                '该档案已有的练习记录会保留。',
+                style: TextStyle(color: textMuted, fontSize: 12),
+              ),
+              TextField(
+                controller: username,
+                decoration: const InputDecoration(labelText: '学生账号（英文数字）'),
+              ),
+              TextField(
+                controller: password,
+                decoration: const InputDecoration(labelText: '密码（至少 8 位）'),
+                obscureText: true,
+              ),
+              TextField(
+                controller: display,
+                decoration: InputDecoration(labelText: '学生姓名（默认「${child.name}」）'),
+              ),
+            ],
+          ),
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(context, false),
+            child: const Text('取消'),
+          ),
+          FilledButton(
+            onPressed: () => Navigator.pop(context, true),
+            child: const Text('绑定'),
+          ),
+        ],
+      ),
+    );
+    if (ok != true || !mounted) return;
+    final account = username.text.trim();
+    if (!RegExp(r'^[a-zA-Z0-9]+$').hasMatch(account)) {
+      _toast('学生账号只能包含英文和数字');
+      return;
+    }
+    if (password.text.length < 8) {
+      _toast('密码至少 8 位');
+      return;
+    }
+    final bound = await ref.read(webSessionProvider).bindStudent(
+          childId: child.id,
+          username: account,
+          password: password.text,
+          displayName: display.text.trim().isEmpty
+              ? child.name
+              : display.text.trim(),
+        );
+    if (!mounted) return;
+    final session = ref.read(webSessionProvider);
+    if (bound) {
+      _toast('已为该档案绑定学生账号 ${child.name}');
+    } else {
+      _toast(session.error ?? '绑定失败');
+    }
+  }
+
+  /// 先建孩子档案，之后再单独开通学生登录
+  Future<void> _addChild(ParentInfo parent) async {
+    final name = TextEditingController();
+    final ok = await showDialog<bool>(
+      context: context,
+      builder: (context) => AlertDialog(
+        title: Text('为 ${parent.name.isEmpty ? parent.username : parent.name} 新建练习档案'),
+        content: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            TextField(
+              controller: name,
+              decoration: const InputDecoration(labelText: '练习档案名'),
+            ),
+            const Padding(
+              padding: EdgeInsets.only(top: 8),
+              child: Text(
+                '先建档案、后开学生登录也可以：之后点该档案旁的「开通学生登录」即可。',
+                style: TextStyle(color: textMuted, fontSize: 12),
+              ),
+            ),
+          ],
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(context, false),
+            child: const Text('取消'),
+          ),
+          FilledButton(
+            onPressed: () => Navigator.pop(context, true),
+            child: const Text('创建'),
+          ),
+        ],
+      ),
+    );
+    if (ok != true || !mounted) return;
+    final childName = name.text.trim();
+    if (childName.isEmpty) {
+      _toast('请填写练习档案名');
+      return;
+    }
+    final added = await ref
+        .read(webSessionProvider)
+        .addChild(parentId: parent.id, name: childName);
+    if (!mounted) return;
+    final session = ref.read(webSessionProvider);
+    _toast(added ? '已创建练习档案' : (session.error ?? '创建失败'));
   }
 
   Future<void> _addStudent(ParentInfo parent) async {
@@ -794,16 +1066,6 @@ class _AdminScreenState extends ConsumerState<AdminScreen> {
           child: ListView(
             padding: const EdgeInsets.all(20),
             children: [
-              if (session.error != null)
-                Padding(
-                  padding: const EdgeInsets.only(bottom: 12),
-                  child: Text(
-                    session.error!,
-                    style: TextStyle(
-                      color: Theme.of(context).colorScheme.error,
-                    ),
-                  ),
-                ),
               Card(
                 child: Padding(
                   padding: const EdgeInsets.all(16),
@@ -898,17 +1160,37 @@ class _AdminScreenState extends ConsumerState<AdminScreen> {
                                       style: const TextStyle(fontSize: 13),
                                     ),
                                   ),
+                                  if (c.studentUsername == null)
+                                    TextButton(
+                                      onPressed: session.busy
+                                          ? null
+                                          : () => _bindStudent(parent, c),
+                                      child: const Text('开通学生登录'),
+                                    ),
                                 ],
                               ),
                             ),
                         const SizedBox(height: 8),
                         Align(
                           alignment: Alignment.centerRight,
-                          child: TextButton.icon(
-                            onPressed:
-                                session.busy ? null : () => _addStudent(parent),
-                            icon: const Icon(Icons.person_add_alt),
-                            label: const Text('添加学生'),
+                          child: Wrap(
+                            spacing: 4,
+                            children: [
+                              TextButton.icon(
+                                onPressed: session.busy
+                                    ? null
+                                    : () => _addChild(parent),
+                                icon: const Icon(Icons.folder_open_outlined),
+                                label: const Text('加练习档案'),
+                              ),
+                              TextButton.icon(
+                                onPressed: session.busy
+                                    ? null
+                                    : () => _addStudent(parent),
+                                icon: const Icon(Icons.person_add_alt),
+                                label: const Text('添加学生'),
+                              ),
+                            ],
                           ),
                         ),
                       ],

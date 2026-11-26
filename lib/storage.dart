@@ -13,6 +13,9 @@ abstract interface class Slots {
 abstract interface class JournalRepository {
   Future<Journal?> load();
   Future<void> save(Journal journal);
+
+  /// 把仍在合并窗口中的修改立即写出；没有待写内容时直接返回
+  Future<void> flush() async {}
 }
 
 class JournalStore implements JournalRepository {

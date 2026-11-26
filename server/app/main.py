@@ -1,14 +1,24 @@
+import logging
+import secrets
+import string
 from contextlib import asynccontextmanager
 
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
-from sqlalchemy import select
+from sqlalchemy import select, text
 
 from . import models  # noqa: F401
 from .config import settings
 from .database import Base, SessionLocal, engine
 from .routers import admin, auth, children, grade, journal
 from .security import hash_password
+
+log = logging.getLogger("uvicorn.error")
+
+
+def _generate_password(length: int = 16) -> str:
+    alphabet = string.ascii_letters + string.digits
+    return "".join(secrets.choice(alphabet) for _ in range(length))
 
 
 @asynccontextmanager
@@ -23,16 +33,24 @@ async def lifespan(app: FastAPI):
             )
         )
         if existing is None:
+            password = settings.admin_password or _generate_password()
             session.add(
                 models.User(
                     username=settings.admin_username,
-                    password_hash=hash_password(settings.admin_password),
+                    password_hash=hash_password(password),
                     display_name="管理员",
                     is_admin=True,
                     role=models.ROLE_ADMIN,
                 )
             )
             await session.commit()
+            if not settings.admin_password:
+                # 只在自动生成时打印；登录后请尽快用「修改密码」替换
+                log.warning(
+                    "首次启动已创建管理员 %s，初始密码：%s （仅本次显示，登录后请立即修改）",
+                    settings.admin_username,
+                    password,
+                )
     yield
 
 
@@ -55,4 +73,10 @@ app.include_router(admin.router)
 
 @app.get("/health")
 async def health():
-    return {"status": "ok"}
+    # 进程活着不代表数据库可用：探活顺带查一次连接
+    try:
+        async with SessionLocal() as session:
+            await session.execute(text("SELECT 1"))
+    except Exception:
+        return {"status": "degraded", "database": "unavailable"}
+    return {"status": "ok", "database": "ok"}
