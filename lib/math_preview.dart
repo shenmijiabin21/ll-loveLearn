@@ -3,9 +3,9 @@ import 'dart:convert';
 import 'package:flutter/services.dart';
 import 'package:material_ui/material_ui.dart';
 
-import 'main.dart';
 import 'math_question.dart';
 import 'math_step.dart';
+import 'theme.dart';
 
 /// 数学题库的加载入口。第一版只读打包进去的样例题，
 /// 等步骤交互稳定后再接数学题库资源和学科切换。

@@ -2,9 +2,9 @@ import 'dart:convert';
 import 'dart:io';
 
 import 'package:flutter_test/flutter_test.dart';
-import 'package:ll_love_learn/main.dart';
 import 'package:ll_love_learn/math_question.dart';
 import 'package:ll_love_learn/math_step.dart';
+import 'package:ll_love_learn/theme.dart';
 import 'package:material_ui/material_ui.dart';
 
 MathQuestion questionOf(String id) {
@@ -19,7 +19,11 @@ MathQuestion questionOf(String id) {
 Future<void> pumpPage(WidgetTester tester, MathQuestion question) async {
   await tester.binding.setSurfaceSize(const Size(900, 1400));
   addTearDown(() => tester.binding.setSurfaceSize(null));
-  await tester.pumpWidget(appShell(MathStepPage(question: question)));
+  // 刻意不用 main.dart 的 appShell：它会经由 practice.dart 把 remote.dart
+  // 顶层的 package:web 拉进来，VM 测试平台没有 dart:js_interop。
+  await tester.pumpWidget(
+    MaterialApp(theme: buildTheme(), home: MathStepPage(question: question)),
+  );
   await tester.pumpAndSettle();
 }
 

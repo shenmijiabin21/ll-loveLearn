@@ -9,15 +9,14 @@ import 'copy.dart';
 import 'domain.dart';
 import 'practice.dart';
 import 'settings.dart';
+import 'theme.dart';
 import 'web_app.dart';
+
+// 主题与版式组件移到 theme.dart，这里转出以保持既有的 import 'main.dart' 不变。
+export 'theme.dart';
 import 'web_bridge_stub.dart'
     if (dart.library.js_interop) 'web_bridge.dart'
     as bridge;
-
-const paper = Color(0xFFF8F5EC);
-const forest = Color(0xFF193D32);
-const sage = Color(0xFFE4ECDD);
-const textMuted = Color(0xFF526358);
 
 void main() {
   // 网页端禁用浏览器层滚动/下拉刷新，避免手写时整页跟着滑动
@@ -27,36 +26,6 @@ void main() {
   }
   runApp(const ProviderScope(child: DictationApp()));
 }
-
-ThemeData buildTheme() => ThemeData(
-      useMaterial3: true,
-      colorScheme: ColorScheme.fromSeed(
-        seedColor: forest,
-        primary: forest,
-        surface: paper,
-      ),
-      scaffoldBackgroundColor: paper,
-      appBarTheme: const AppBarTheme(
-        backgroundColor: paper,
-        foregroundColor: forest,
-      ),
-      navigationBarTheme: const NavigationBarThemeData(
-        backgroundColor: paper,
-        indicatorColor: sage,
-      ),
-      navigationRailTheme: const NavigationRailThemeData(
-        backgroundColor: paper,
-        indicatorColor: sage,
-      ),
-      filledButtonTheme: FilledButtonThemeData(
-        style: FilledButton.styleFrom(
-          minimumSize: const Size(48, 48),
-          shape: RoundedRectangleBorder(
-            borderRadius: BorderRadius.circular(14),
-          ),
-        ),
-      ),
-    );
 
 Widget appShell(Widget home) => MaterialApp(
       title: '每日听写',
@@ -250,69 +219,6 @@ class SaveNotice extends ConsumerWidget {
       ),
     );
   }
-}
-
-class PageBody extends StatelessWidget {
-  const PageBody({super.key, required this.children});
-  final List<Widget> children;
-
-  @override
-  Widget build(BuildContext context) => Center(
-    child: ConstrainedBox(
-      constraints: const BoxConstraints(maxWidth: 880),
-      child: Align(
-        alignment: Alignment.topCenter,
-        child: ListView(
-          padding: const EdgeInsets.fromLTRB(20, 14, 20, 24),
-          children: children,
-        ),
-      ),
-    ),
-  );
-}
-
-class SectionTitle extends StatelessWidget {
-  const SectionTitle(this.title, this.subtitle, {super.key});
-  final String title;
-  final String subtitle;
-
-  @override
-  Widget build(BuildContext context) => Padding(
-    padding: const EdgeInsets.only(bottom: 18),
-    child: Column(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: [
-        Text(
-          title,
-          style: const TextStyle(
-            fontSize: 30,
-            fontWeight: FontWeight.w800,
-            color: forest,
-          ),
-        ),
-        const SizedBox(height: 5),
-        Text(subtitle, style: const TextStyle(color: textMuted, height: 1.45)),
-      ],
-    ),
-  );
-}
-
-class Panel extends StatelessWidget {
-  const Panel({super.key, required this.child, this.color = Colors.white});
-  final Widget child;
-  final Color color;
-
-  @override
-  Widget build(BuildContext context) => Container(
-    margin: const EdgeInsets.only(bottom: 12),
-    clipBehavior: Clip.antiAlias,
-    decoration: BoxDecoration(
-      color: color,
-      borderRadius: BorderRadius.circular(20),
-      border: Border.all(color: const Color(0xFFDCE3D7)),
-    ),
-    child: child,
-  );
 }
 
 class TodayPage extends ConsumerWidget {

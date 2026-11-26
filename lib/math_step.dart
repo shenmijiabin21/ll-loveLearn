@@ -1,8 +1,7 @@
 import 'package:material_ui/material_ui.dart';
 
-import 'main.dart';
 import 'math_question.dart';
-import 'practice.dart' show verdictOk, verdictWarn;
+import 'theme.dart';
 
 /// 数学步骤练习的最小页面：只负责步骤展示、槽位输入和逐格判定。
 ///

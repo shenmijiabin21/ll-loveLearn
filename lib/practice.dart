@@ -12,11 +12,7 @@ import 'device.dart';
 import 'domain.dart';
 import 'main.dart';
 import 'remote.dart';
-
-// 批改结果配色：正确=绿，待确认=红，其余保持中性
-const verdictOk = Color(0xFF2E7D32);
-const verdictWarn = Color(0xFFC62828);
-const verdictNeutral = Color(0xFFDCE3D7);
+import 'theme.dart';
 
 Color _frameColor(Verdict? verdict) => switch (verdict) {
   Verdict.correct => verdictOk,
