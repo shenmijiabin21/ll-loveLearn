@@ -46,6 +46,8 @@ class WebSession extends ChangeNotifier {
   Controller? controller;
 
   bool busy = false;
+  /// 5 秒轮询的防重入标记：网络慢于 5 秒时不要叠加请求
+  bool _presenceInFlight = false;
   String? error;
 
   ApiClient? get api => _api;
@@ -194,11 +196,17 @@ class WebSession extends ChangeNotifier {
   /// 列表页定时刷新在线状态。不走 _guarded：静默刷新不该闪忙碌指示，
   /// 也不该在失败时覆盖用户正在看的错误提示。
   Future<void> refreshPresence() async {
-    if (_api == null || busy) return;
-    // 只有状态或时长真的变了才重建，避免无意义的重绘
-    final before = presenceSignature(presences);
-    await _loadPresences();
-    if (before != presenceSignature(presences)) notifyListeners();
+    // 上一次还没回来就跳过这一拍：5 秒间隔下，网络抖动时请求会越堆越多
+    if (_api == null || busy || _presenceInFlight) return;
+    _presenceInFlight = true;
+    try {
+      // 只有状态或时长真的变了才重建，避免无意义的重绘
+      final before = presenceSignature(presences);
+      await _loadPresences();
+      if (before != presenceSignature(presences)) notifyListeners();
+    } finally {
+      _presenceInFlight = false;
+    }
   }
 
   // —— 管理员操作 ——
