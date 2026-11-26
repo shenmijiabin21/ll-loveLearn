@@ -9,12 +9,10 @@ import 'device.dart';
 import 'domain.dart';
 import 'storage.dart';
 
-final openJournal = FutureProvider<JournalStore>((ref) => JournalStore.open());
 final controllerProvider = ChangeNotifierProvider<Controller>(
   (ref) => throw StateError('尚未加载练习'),
 );
 final speechProvider = Provider<Speech>((ref) => Speech());
-final inkProvider = Provider<DigitalInk>((ref) => DigitalInk());
 
 class Controller extends ChangeNotifier {
   Controller(this.store, this.data);

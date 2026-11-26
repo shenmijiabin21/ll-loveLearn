@@ -1,19 +1,15 @@
 import 'dart:convert';
+import 'dart:typed_data';
 
-import 'package:file_selector/file_selector.dart';
-import 'package:flutter/foundation.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:material_ui/material_ui.dart';
-import 'package:share_plus/share_plus.dart';
 
 import 'controller.dart';
 import 'domain.dart';
+import 'main.dart';
 import 'web_bridge_stub.dart'
     if (dart.library.js_interop) 'web_bridge.dart'
     as bridge;
-import 'device.dart';
-import 'domain.dart';
-import 'main.dart';
 
 class SettingsPage extends ConsumerStatefulWidget {
   const SettingsPage({super.key});
@@ -24,22 +20,6 @@ class SettingsPage extends ConsumerStatefulWidget {
 
 class _SettingsPageState extends ConsumerState<SettingsPage> {
   bool _busy = false;
-  bool? _ready;
-
-  @override
-  void initState() {
-    super.initState();
-    _checkModel();
-  }
-
-  Future<void> _checkModel() async {
-    try {
-      final ready = await ref.read(inkProvider).ready();
-      if (mounted) setState(() => _ready = ready);
-    } on Exception {
-      if (mounted) setState(() => _ready = false);
-    }
-  }
 
   void _message(String text) {
     if (mounted) {
@@ -68,18 +48,10 @@ class _SettingsPageState extends ConsumerState<SettingsPage> {
   }
 
   Future<Object?> _readJson(int maxBytes) async {
-    const types = [
-      XTypeGroup(
-        label: 'JSON',
-        extensions: ['json'],
-        mimeTypes: ['application/json'],
-        uniformTypeIdentifiers: ['public.json'],
-      ),
-    ];
-    final file = await openFile(acceptedTypeGroups: types);
-    if (file == null) return null;
-    if (await file.length() > maxBytes) throw const FormatException('文件过大');
-    return jsonDecode(await file.readAsString());
+    final (name, size, text) = await bridge.pickTextFile('application/json');
+    if (name == null) return null;
+    if (size > maxBytes) throw const FormatException('文件过大');
+    return jsonDecode(text);
   }
 
   Future<void> _importLibrary(Controller controller) => _run(() async {
@@ -142,24 +114,11 @@ class _SettingsPageState extends ConsumerState<SettingsPage> {
     }
   });
 
-  Future<void> _export(BuildContext anchor, Controller controller) =>
-      _run(() async {
-        final filename = '每日听写-${controller.today}.json';
-        final bytes =
-            Uint8List.fromList(utf8.encode(jsonEncode(controller.data)));
-        if (kIsWeb) {
-          bridge.downloadBytes(filename, 'application/json', bytes);
-          return;
-        }
-        final box = anchor.findRenderObject()! as RenderBox;
-        await SharePlus.instance.share(
-          ShareParams(
-            files: [XFile.fromData(bytes, mimeType: 'application/json')],
-            fileNameOverrides: [filename],
-            sharePositionOrigin: box.localToGlobal(Offset.zero) & box.size,
-          ),
-        );
-      });
+  Future<void> _export(Controller controller) => _run(() async {
+    final filename = '每日听写-${controller.today}.json';
+    final bytes = Uint8List.fromList(utf8.encode(jsonEncode(controller.data)));
+    bridge.downloadBytes(filename, 'application/json', bytes);
+  });
 
   String _startLabel(Journal journal) {
     final start = journal.start;
@@ -282,48 +241,21 @@ class _SettingsPageState extends ConsumerState<SettingsPage> {
             children: [
               ListTile(
                 leading: const Icon(Icons.gesture_rounded, color: forest),
-                title: const Text('简体中文手写模型'),
-                subtitle: Text(
-                  kIsWeb
-                      ? '网页版由服务器识别，无需在此下载模型'
-                      : !hasMobileServices
-                      ? '自动识字功能在 iPhone、iPad 或 Android 上使用'
-                      : _ready == true
-                      ? '模型已就绪，可离线识别'
-                      : _ready == null
-                      ? '正在检查模型…'
-                      : '首次需联网下载，随后可离线识别',
-                ),
-                trailing: hasMobileServices && _ready != true
-                    ? TextButton(
-                        onPressed: _busy || _ready == null
-                            ? null
-                            : () => _run(() async {
-                                final downloaded = await ref
-                                    .read(inkProvider)
-                                    .download();
-                                if (!mounted) return;
-                                await _checkModel();
-                                _message(
-                                  downloaded ? '手写模型已下载。' : '下载未完成，请检查网络后重试。',
-                                );
-                              }),
-                        child: const Text('下载'),
-                      )
-                    : null,
+                title: const Text('手写识别'),
+                subtitle: const Text('网页版由服务器识别，无需在浏览器下载模型'),
               ),
               const Divider(height: 1),
               ListTile(
                 leading: const Icon(Icons.record_voice_over_outlined),
                 title: const Text('试播普通话'),
-                subtitle: const Text('使用系统语音。请提前准备普通话离线语音。'),
+                subtitle: const Text('使用浏览器语音，需系统已安装中文语音。'),
                 onTap: _busy
                     ? null
                     : () => _run(() async {
                         final played = await ref
                             .read(speechProvider)
                             .play('每日听写。请写观察的第一个字。');
-                        _message(played ? '正在播放。' : '系统普通话语音暂不可用。');
+                        _message(played ? '正在播放。' : '浏览器语音暂不可用。');
                       }),
               ),
             ],
@@ -332,13 +264,11 @@ class _SettingsPageState extends ConsumerState<SettingsPage> {
         Panel(
           child: Column(
             children: [
-              Builder(
-                builder: (anchor) => ListTile(
-                  leading: const Icon(Icons.ios_share, color: forest),
-                  title: const Text('导出备份'),
-                  subtitle: const Text('导出字库、练习、草稿和原笔迹'),
-                  onTap: _busy ? null : () => _export(anchor, controller),
-                ),
+              ListTile(
+                leading: const Icon(Icons.download_rounded, color: forest),
+                title: const Text('导出备份'),
+                subtitle: const Text('导出字库、练习、草稿和原笔迹'),
+                onTap: _busy ? null : () => _export(controller),
               ),
               const Divider(height: 1),
               ListTile(

@@ -1,6 +1,5 @@
 import 'dart:async';
 import 'dart:math' as math;
-import 'dart:ui' as ui;
 import 'dart:ui' show PointMode;
 
 import 'package:flutter/gestures.dart';
@@ -101,11 +100,7 @@ class _PracticePageState extends ConsumerState<PracticePage>
     if (played) return;
     ScaffoldMessenger.of(context).showSnackBar(
       SnackBar(
-        content: Text(
-          hasMobileServices
-              ? '普通话语音不可用。可在系统中准备语音，或请家长读题。'
-              : '浏览器语音不可用。请确认系统已安装中文语音，或请家长读题。',
-        ),
+        content: const Text('浏览器语音不可用。请确认系统已安装中文语音，或请家长读题。'),
         action: SnackBarAction(
           label: '家长读题',
           onPressed: () {

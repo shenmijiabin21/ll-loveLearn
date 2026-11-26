@@ -2,13 +2,22 @@ import 'dart:convert';
 import 'dart:io';
 
 import 'package:flutter_test/flutter_test.dart';
-import 'package:ll_love_learn/device.dart';
 import 'package:ll_love_learn/domain.dart';
 import 'package:ll_love_learn/storage.dart';
-import 'package:ll_love_learn/storage_native.dart';
 
 Library demo() =>
     Library.fromJson(jsonDecode(File('assets/demo.json').readAsStringSync()));
+
+class MemorySlots implements Slots {
+  final Map<int, String> data = {};
+
+  @override
+  Future<String?> read(int index) async => data[index];
+
+  @override
+  Future<void> write(int index, String snapshot) async =>
+      data[index] = snapshot;
+}
 
 void main() {
   TestWidgetsFlutterBinding.ensureInitialized();
@@ -80,45 +89,9 @@ void main() {
     expect(journal.focus.single.errors, 2);
   });
 
-  test('only separated, plausible recognition yields an automatic verdict', () {
-    const spaced = [(text: '门', score: 1.0), (text: '问', score: 3.0)];
-    expect(classify('门', spaced).verdict, Verdict.correct);
-    expect(classify('目', spaced).verdict, Verdict.wrong);
-    expect(classify('问', spaced).verdict, Verdict.pending);
-    expect(
-      classify('门', [(text: '门', score: 0.0), (text: '问', score: 0.0)]).verdict,
-      Verdict.pending,
-    );
-    expect(classify('门', [(text: '门', score: 0.0)]).verdict, Verdict.pending);
-  });
-
   test(
-    'without a mobile model, strokes stay pending and empty answers are blank',
+    'snapshot saves preserve ink and recover the previous valid revision',
     () async {
-      final questions = Journal(demo()).dailyQuestions(today);
-      final grades = await DigitalInk().grade([
-        Answer(
-          questions.first,
-          ink: [
-            [const InkPoint(.2, .3, 3)],
-          ],
-        ),
-        Answer(questions.last),
-      ]);
-      expect(grades.map((grade) => grade.verdict), [
-        Verdict.pending,
-        Verdict.blank,
-      ]);
-    },
-  );
-
-  test(
-    'disk saves preserve ink and recover the previous valid revision',
-    () async {
-      final directory = await Directory.systemTemp.createTemp(
-        'daily-dictation-',
-      );
-      addTearDown(() => directory.delete(recursive: true));
       final journal = Journal(demo());
       final question = journal.dailyQuestions(today).first;
       journal.draft = Practice('1', today, true, [
@@ -129,12 +102,13 @@ void main() {
           ],
         ),
       ]);
-      final slots = NativeSlots(directory);
+      final slots = MemorySlots();
       final store = JournalStore(slots);
       await store.save(journal);
       journal.draft = null;
       await store.save(journal);
       expect((await JournalStore(slots).load())?.draft, isNull);
+      // 破坏最新的那一槽，回退到上一份有效快照
       await slots.write(0, '{');
       final recovered = await JournalStore(slots).load();
       expect(recovered?.draft?.answers.single.ink.single.last.y, .7);

@@ -1,9 +1,6 @@
 import 'dart:convert';
 
 import 'domain.dart';
-import 'storage_native.dart'
-    if (dart.library.js_interop) 'storage_web.dart'
-    as platform;
 
 abstract interface class Slots {
   Future<String?> read(int index);
@@ -18,6 +15,8 @@ abstract interface class JournalRepository {
   Future<void> flush() async {}
 }
 
+/// 双槽轮换的本地快照仓库。网页端实际使用云端 [RemoteJournalStore]，
+/// 这里保留给测试和离线快照场景注入自定义 [Slots]。
 class JournalStore implements JournalRepository {
   JournalStore(this.slots);
 
@@ -25,10 +24,7 @@ class JournalStore implements JournalRepository {
   int _revision = 0;
   Future<void> _writes = Future.value();
 
-  static Future<JournalStore> open() async =>
-      JournalStore(await platform.openSlots());
-
-  // 本地版每次 save 都直接写，没有合并窗口，flush 无需额外动作
+  // 每次 save 都直接写，没有合并窗口，flush 无需额外动作
   @override
   Future<void> flush() async {}
 

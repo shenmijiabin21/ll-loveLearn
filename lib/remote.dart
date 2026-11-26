@@ -1,7 +1,6 @@
 import 'dart:async';
 import 'dart:convert';
 
-import 'package:flutter/foundation.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:http/http.dart' as http;
 
@@ -508,22 +507,13 @@ class WebGrader implements Grader {
 
 final apiClientProvider = Provider<ApiClient>((ref) => throw StateError('尚未登录'));
 
-final graderProvider = Provider<Grader>((ref) {
-  if (kIsWeb) return WebGrader(ref.watch(apiClientProvider));
-  return DigitalInk();
-});
+final graderProvider = Provider<Grader>(
+  (ref) => WebGrader(ref.watch(apiClientProvider)),
+);
 
-// —— token 持久化（仅 web，localStorage）——
-// 具体实现走条件导入，避免 remote.dart 顶层引入 package:web ——
-// 那会让 VM 平台的测试因为 dart:js_interop 不可用而无法加载。
-String? readStoredToken() => kIsWeb ? token.readToken() : null;
+// —— token 持久化（localStorage）——
+String? readStoredToken() => token.readToken();
 
-void persistToken(String value) {
-  if (!kIsWeb) return;
-  token.writeToken(value);
-}
+void persistToken(String value) => token.writeToken(value);
 
-void clearToken() {
-  if (!kIsWeb) return;
-  token.removeToken();
-}
+void clearToken() => token.removeToken();

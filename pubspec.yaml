@@ -1,5 +1,5 @@
 name: ll_love_learn
-description: 每日听写，离线优先的中文手写练习。
+description: 每日听写，网页端的中文手写练习。
 publish_to: none
 version: 1.0.0+1
 environment:
@@ -10,11 +10,6 @@ dependencies:
     sdk: flutter
   material_ui: 1.11.1
   flutter_riverpod: 3.5.0
-  flutter_tts: 4.2.5
-  google_mlkit_digital_ink_recognition: 0.16.1
-  path_provider: 2.1.6
-  file_selector: 1.1.0
-  share_plus: 13.3.1
   web: ^1.1.1
   http: ^1.2.2
 dev_dependencies:
@@ -22,8 +17,6 @@ dev_dependencies:
     sdk: flutter
   flutter_lints: ^6.0.0
 flutter:
-  config:
-    enable-swift-package-manager: false
   uses-material-design: true
   assets:
     - assets/demo.json

@@ -20,14 +20,8 @@ class MemorySlots implements Slots {
       data[index] = snapshot;
 }
 
-class UnavailableModel extends DigitalInk {
-  @override
-  Future<bool> ready() async => false;
-}
-
 /// 这个测试验证的是提交流程与界面，识别器本身不该介入。
-/// 真实 DigitalInk.grade 是异步的，在 widget 测试的 fake async 环境里
-/// 不一定能被 pumpAndSettle 驱动完，会让提交停在 await 上。
+/// 网页端的真实识别走服务器请求，同样的道理在 widget 测试里不能等。
 class ImmediateGrader implements Grader {
   @override
   Future<List<Grade>> grade(List<Answer> answers) async => [
@@ -49,11 +43,11 @@ void main() {
     await tester.pumpWidget(
       ProviderScope(
         overrides: [
-          startup.overrideWith((ref) async => controller!),
-          inkProvider.overrideWithValue(UnavailableModel()),
+          controllerProvider.overrideWith((ref) => controller!),
           graderProvider.overrideWithValue(ImmediateGrader()),
         ],
-        child: const DictationApp(),
+        // 练习页本身就是 WebApp 登录后进入的界面，这里直接挂载
+        child: appShell(const Dashboard(showSettings: false)),
       ),
     );
     await tester.pumpAndSettle();

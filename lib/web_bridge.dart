@@ -1,3 +1,4 @@
+import 'dart:async';
 import 'dart:js_interop';
 import 'dart:typed_data';
 
@@ -69,15 +70,56 @@ void downloadBytes(String filename, String mimeType, Uint8List bytes) {
   web.URL.revokeObjectURL(url);
 }
 
+/// 用隐藏的 <input type=file> 选文件并读出文本。
+///
+/// 返回 (文件名, 字节数, 文本)；用户取消时文件名和文本为 null。
+/// 用 FileReader 而不是 File.text()，老一点的浏览器也能用。
+Future<(String?, int, String)> pickTextFile(String mimeType) {
+  final completer = Completer<(String?, int, String)>();
+  final input = web.document.createElement('input') as web.HTMLInputElement
+    ..type = 'file'
+    ..accept = mimeType;
+  input.addEventListener(
+    'change',
+    ((web.Event _) {
+      final file = input.files?.item(0);
+      if (file == null) {
+        completer.complete((null, 0, ''));
+        return;
+      }
+      final reader = web.FileReader();
+      reader.addEventListener(
+        'load',
+        ((web.Event _) {
+          final result = reader.result;
+          completer.complete((
+            file.name,
+            file.size,
+            (result as JSString?)?.toDart ?? '',
+          ));
+        }).toJS,
+      );
+      reader.addEventListener(
+        'error',
+        ((web.Event _) {
+          completer.complete((null, 0, ''));
+        }).toJS,
+      );
+      reader.readAsText(file);
+    }).toJS,
+  );
+  input.click();
+  return completer.future;
+}
+
 /// 禁用浏览器层的滚动与下拉刷新，让手势全部交给 Flutter 画布，
 /// 否则手写时会连带整页上下滑动。
 void lockPageScroll() {
   try {
-    final root = web.document.documentElement;
-    if (root is web.HTMLElement) {
-      root.style.setProperty('touch-action', 'none');
-      root.style.setProperty('overscroll-behavior', 'none');
-    }
+    // documentElement 的静态类型是 Element，能改样式的都是 HTMLElement
+    final root = web.document.documentElement as web.HTMLElement?;
+    root?.style.setProperty('touch-action', 'none');
+    root?.style.setProperty('overscroll-behavior', 'none');
     final body = web.document.body;
     if (body != null) {
       // 只禁用触摸滚动与下拉刷新：手写手势全部交给 Flutter 画布。

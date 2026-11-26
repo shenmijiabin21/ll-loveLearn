@@ -1,6 +1,5 @@
 import 'dart:async';
 
-import 'package:flutter/foundation.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:material_ui/material_ui.dart';
 
@@ -20,10 +19,8 @@ import 'web_bridge_stub.dart'
 
 void main() {
   // 网页端禁用浏览器层滚动/下拉刷新，避免手写时整页跟着滑动
-  if (kIsWeb) {
-    bridge.lockPageScroll();
-    bridge.warmUpSpeech();
-  }
+  bridge.lockPageScroll();
+  bridge.warmUpSpeech();
   runApp(const ProviderScope(child: DictationApp()));
 }
 
@@ -38,54 +35,11 @@ Widget appShell(Widget home, {TransitionBuilder? builder}) => MaterialApp(
       home: home,
     );
 
-final startup = FutureProvider<Controller>((ref) async {
-  final store = await ref.watch(openJournal.future);
-  return Controller.load(store);
-});
-
 class DictationApp extends ConsumerWidget {
   const DictationApp({super.key});
 
   @override
-  Widget build(BuildContext context, WidgetRef ref) {
-    if (kIsWeb) return const WebApp();
-    final boot = ref.watch(startup);
-    final app = appShell(
-      boot.when(
-        data: (_) => const Dashboard(),
-        loading: () =>
-            const Scaffold(body: Center(child: CircularProgressIndicator())),
-        error: (error, _) => Scaffold(
-          body: Center(
-            child: Padding(
-              padding: const EdgeInsets.all(24),
-              child: Column(
-                mainAxisSize: MainAxisSize.min,
-                children: [
-                  const Text('无法打开本地练习记录。'),
-                  const SizedBox(height: 12),
-                  FilledButton(
-                    onPressed: () {
-                      ref.invalidate(openJournal);
-                      ref.invalidate(startup);
-                    },
-                    child: const Text('重试'),
-                  ),
-                ],
-              ),
-            ),
-          ),
-        ),
-      ),
-    );
-    final controller = boot.asData?.value;
-    return controller == null
-        ? app
-        : ProviderScope(
-            overrides: [controllerProvider.overrideWith((ref) => controller)],
-            child: app,
-          );
-  }
+  Widget build(BuildContext context, WidgetRef ref) => const WebApp();
 }
 
 class Dashboard extends ConsumerStatefulWidget {
@@ -147,18 +101,16 @@ class _DashboardState extends ConsumerState<Dashboard> {
           ],
         ),
         actions: [
-          if (kIsWeb) ...[
-            IconButton(
-              icon: const Icon(Icons.password_rounded),
-              tooltip: '修改密码',
-              onPressed: () => showChangePasswordDialog(context, ref),
-            ),
-            IconButton(
-              icon: const Icon(Icons.logout),
-              tooltip: '退出登录',
-              onPressed: () => ref.read(webSessionProvider).signOut(),
-            ),
-          ],
+          IconButton(
+            icon: const Icon(Icons.password_rounded),
+            tooltip: '修改密码',
+            onPressed: () => showChangePasswordDialog(context, ref),
+          ),
+          IconButton(
+            icon: const Icon(Icons.logout),
+            tooltip: '退出登录',
+            onPressed: () => ref.read(webSessionProvider).signOut(),
+          ),
         ],
       ),
       body: SafeArea(
