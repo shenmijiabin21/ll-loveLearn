@@ -2,7 +2,7 @@ import uuid
 from datetime import datetime
 from typing import Optional
 
-from sqlalchemy import BigInteger, DateTime, ForeignKey, String, func
+from sqlalchemy import BigInteger, Boolean, DateTime, ForeignKey, String, func
 from sqlalchemy.dialects.postgresql import JSONB, UUID
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 
@@ -103,3 +103,45 @@ class Journal(Base):
     )
 
     child: Mapped["Child"] = relationship(back_populates="journal")
+
+
+class Presence(Base):
+    """孩子端「是否正在练习」的心跳。
+
+    每（孩子, 日期）一行。客户端只上报素材（是否可见、落笔数、离开累计），
+    在线状态一律由服务端按 last_seen_at 推导：关掉网页、拔网线、强杀进程
+    都不会再上报，超时后自然变成离线，不需要客户端发「结束」事件。
+    """
+
+    __tablename__ = "presence"
+
+    child_id: Mapped[uuid.UUID] = mapped_column(
+        ForeignKey("children.id", ondelete="CASCADE"), primary_key=True
+    )
+    # 服务器本地日期 YYYY-MM-DD，与 children._today() 一致
+    day: Mapped[str] = mapped_column(String(10), primary_key=True)
+    # 当前这一次练习的 ID；换练习或提交后由客户端更新
+    practice_id: Mapped[Optional[str]] = mapped_column(String(64), nullable=True)
+    last_seen_at: Mapped[Optional[datetime]] = mapped_column(
+        DateTime(timezone=True), nullable=True
+    )
+    last_stroke_at: Mapped[Optional[datetime]] = mapped_column(
+        DateTime(timezone=True), nullable=True
+    )
+    # 非空表示页面当前不可见（切标签页/最小化）；回到前台时清空
+    away_since: Mapped[Optional[datetime]] = mapped_column(
+        DateTime(timezone=True), nullable=True
+    )
+    # 今天这一组已经提交完成；重练或开始新练习时由客户端清零
+    done: Mapped[bool] = mapped_column(
+        Boolean, default=False, server_default="false"
+    )
+    # 以下为客户端累计值，服务端只取最大值，重复/乱序上报不会把数字改小
+    strokes: Mapped[int] = mapped_column(BigInteger, default=0, server_default="0")
+    away_count: Mapped[int] = mapped_column(BigInteger, default=0, server_default="0")
+    away_seconds: Mapped[int] = mapped_column(
+        BigInteger, default=0, server_default="0"
+    )
+    active_seconds: Mapped[int] = mapped_column(
+        BigInteger, default=0, server_default="0"
+    )

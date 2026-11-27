@@ -7,8 +7,10 @@ import 'package:material_ui/material_ui.dart';
 
 import 'controller.dart';
 import 'domain.dart';
+import 'live.dart';
 import 'main.dart';
 import 'practice.dart';
+import 'presence.dart';
 import 'remote.dart';
 import 'settings.dart';
 
@@ -28,9 +30,25 @@ class WebSession extends ChangeNotifier {
   List<ParentInfo> parents = [];
   Map<String, ChildSummary> summaries = {};
 
+  /// 孩子的实时在线状态，按 child_id 索引；由服务端推导，客户端只展示
+  Map<String, ChildPresence> presences = {};
+
+  /// 孩子当前题目进度（WebSocket progress 事件）
+  Map<String, LiveProgress> progress = {};
+
+  /// 家长端实时通道是否已连上（未连上时退回 HTTP 轮询兜底）
+  bool liveConnected = false;
+
+  LiveMonitor? _live;
+  Timer? _fallback;
+  bool _presenceInFlight = false;
+
   ChildInfo? activeChild;
   ChildSummary? activeSummary;
   Controller? controller;
+
+  /// 学生练习时的状态上报器（由 practice 页驱动生命周期）
+  PracticePresence? practicePresence;
 
   bool busy = false;
   String? error;
@@ -84,6 +102,7 @@ class WebSession extends ChangeNotifier {
     if (user.isAdmin) {
       parents = await _api!.listParents();
       screen = WebScreen.admin;
+      _startLive();
       return;
     }
     children = await _api!.listChildren();
@@ -97,6 +116,7 @@ class WebSession extends ChangeNotifier {
     }
     await _loadSummaries();
     screen = WebScreen.parentList;
+    _startLive();
   }
 
   Future<void> _loadSummaries() async {
@@ -112,6 +132,94 @@ class WebSession extends ChangeNotifier {
       for (final (index, summary) in results.indexed)
         if (summary != null) children[index].id: summary,
     };
+    await _loadPresences();
+  }
+
+  /// 在线状态首屏 / 兜底：一次取全，失败保留上一次的值
+  Future<void> _loadPresences() async {
+    final api = _api;
+    if (api == null) return;
+    try {
+      presences = await api.listPresence();
+    } on Exception {
+      // 网络抖动时不要把整片状态闪成「不在页面」
+    }
+  }
+
+  /// 建立实时通道。连上之后家长端不再轮询；
+  /// 断线时由 [_startFallback] 每隔 15 秒拉一次兜底。
+  void _startLive() {
+    final url = _api?.liveUrl;
+    if (url == null) return;
+    _live?.dispose();
+    _live = LiveMonitor(
+      url: url,
+      onEvent: _onLiveEvent,
+      onState: (connected) {
+        liveConnected = connected;
+        if (connected) {
+          _fallback?.cancel();
+          _fallback = null;
+        } else {
+          _startFallback();
+        }
+        notifyListeners();
+      },
+    )..connect();
+  }
+
+  void _startFallback() {
+    _fallback?.cancel();
+    _fallback = Timer.periodic(const Duration(seconds: 15), (_) {
+      if (liveConnected) {
+        _fallback?.cancel();
+        _fallback = null;
+        return;
+      }
+      refreshPresence();
+    });
+  }
+
+  void _onLiveEvent(Map<String, dynamic> event) {
+    switch (event['type']) {
+      case 'snapshot':
+        final list = event['presence'];
+        if (list is List) {
+          presences = {
+            for (final item in list)
+              if (item is Map<String, dynamic>)
+                (item['child_id'] as String? ?? ''): ChildPresence.fromJson(item),
+          };
+        }
+      case 'presence':
+        final item = event['presence'];
+        if (item is Map<String, dynamic>) {
+          final presence = ChildPresence.fromJson(item);
+          if (presence.childId.isNotEmpty) {
+            presences = {...presences, presence.childId: presence};
+          }
+        }
+      case 'progress':
+        final childId = event['child_id'] as String?;
+        if (childId != null) {
+          progress = {...progress, childId: LiveProgress.fromJson(event)};
+        }
+      default:
+        return; // pong 等控制帧
+    }
+    notifyListeners();
+  }
+
+  /// 兜底轮询：只有在 WebSocket 断开期间才会被调用
+  Future<void> refreshPresence() async {
+    if (_api == null || busy || _presenceInFlight) return;
+    _presenceInFlight = true;
+    try {
+      await _loadPresences();
+      notifyListeners();
+    } finally {
+      _presenceInFlight = false;
+    }
   }
 
   Future<void> _enterChild(ChildInfo child, {required bool practice}) async {
@@ -122,6 +230,13 @@ class WebSession extends ChangeNotifier {
     } on Exception {
       activeSummary = null;
     }
+    // 学生进练习时才采集状态；家长看详情页不上报
+    practicePresence?.stop();
+    practicePresence = practice
+        ? PracticePresence(
+            report: (report) => _api!.reportPresence(child.id, report),
+          )
+        : null;
     screen = practice ? WebScreen.practice : WebScreen.parentDetail;
   }
 
@@ -158,6 +273,8 @@ class WebSession extends ChangeNotifier {
   });
 
   Future<void> backToList() => _guarded(() async {
+    practicePresence?.stop();
+    practicePresence = null;
     activeChild = null;
     activeSummary = null;
     controller = null;
@@ -251,11 +368,20 @@ class WebSession extends ChangeNotifier {
         api.post('/auth/logout', const <String, Object>{}).catchError((_) {}),
       );
     }
+    _live?.dispose();
+    _live = null;
+    _fallback?.cancel();
+    _fallback = null;
+    liveConnected = false;
+    practicePresence?.stop();
+    practicePresence = null;
     _api = null;
     me = null;
     children = [];
     parents = [];
     summaries = {};
+    presences = {};
+    progress = {};
     activeChild = null;
     activeSummary = null;
     controller = null;
@@ -263,6 +389,14 @@ class WebSession extends ChangeNotifier {
     screen = WebScreen.login;
     clearToken();
     notifyListeners();
+  }
+
+  @override
+  void dispose() {
+    _live?.dispose();
+    _fallback?.cancel();
+    practicePresence?.stop();
+    super.dispose();
   }
 }
 
@@ -383,6 +517,8 @@ class WebApp extends ConsumerWidget {
           controllerProvider.overrideWith((ref) => session.controller!),
           apiClientProvider.overrideWithValue(session.api!),
           graderProvider.overrideWith((ref) => WebGrader(session.api!)),
+          // 学生练习时把心跳/进度上报给服务端，家长端通过 WebSocket 实时看到
+          presenceProvider.overrideWithValue(session.practicePresence),
         ],
         // 学生端不显示「设置」：字库/进度等练习设置由家长端负责
         child: _wrap(const Dashboard(showSettings: false)),
@@ -511,6 +647,34 @@ class ParentScreen extends ConsumerWidget {
       appBar: AppBar(
         title: const Text('孩子的练习情况'),
         actions: [
+          // 实时通道状态：连上后家长端由服务端推送，不再轮询
+          Padding(
+            padding: const EdgeInsets.symmetric(horizontal: 4),
+            child: Tooltip(
+              message: session.liveConnected
+                  ? '实时通道已连接，状态由服务器即时推送'
+                  : '实时通道未连接，正在用 15 秒轮询兜底',
+              child: Row(
+                children: [
+                  Icon(
+                    session.liveConnected
+                        ? Icons.bolt_rounded
+                        : Icons.cloud_off_rounded,
+                    size: 16,
+                    color: session.liveConnected ? verdictOk : textMuted,
+                  ),
+                  const SizedBox(width: 4),
+                  Text(
+                    session.liveConnected ? '实时' : '重连中',
+                    style: TextStyle(
+                      fontSize: 12,
+                      color: session.liveConnected ? verdictOk : textMuted,
+                    ),
+                  ),
+                ],
+              ),
+            ),
+          ),
           IconButton(
             icon: const Icon(Icons.refresh),
             tooltip: '刷新',
@@ -549,6 +713,8 @@ class ParentScreen extends ConsumerWidget {
                 _ChildCard(
                   child: child,
                   summary: session.summaries[child.id],
+                  presence: session.presences[child.id],
+                  progress: session.progress[child.id],
                   onOpen: () => session.openChild(child),
                 ),
             ],
@@ -564,16 +730,22 @@ class _ChildCard extends StatelessWidget {
     required this.child,
     required this.summary,
     required this.onOpen,
+    this.presence,
+    this.progress,
   });
 
   final ChildInfo child;
   final ChildSummary? summary;
   final VoidCallback onOpen;
+  final ChildPresence? presence;
+  final LiveProgress? progress;
 
   @override
   Widget build(BuildContext context) {
     final s = summary;
     final accuracy = s?.accuracy;
+    final p = presence;
+    final progress = this.progress;
     return Card(
       margin: const EdgeInsets.only(bottom: 12),
       child: InkWell(
@@ -610,6 +782,10 @@ class _ChildCard extends StatelessWidget {
                   const Icon(Icons.chevron_right),
                 ],
               ),
+              if (p != null) ...[
+                const SizedBox(height: 10),
+                _PresenceChip(presence: p, progress: progress),
+              ],
               const SizedBox(height: 12),
               Wrap(
                 spacing: 22,
@@ -625,6 +801,50 @@ class _ChildCard extends StatelessWidget {
           ),
         ),
       ),
+    );
+  }
+}
+
+/// 家长端一条实时状态：在线状态 + 当前题目进度（都由服务端推送）。
+class _PresenceChip extends StatelessWidget {
+  const _PresenceChip({required this.presence, this.progress});
+
+  final ChildPresence presence;
+  final LiveProgress? progress;
+
+  @override
+  Widget build(BuildContext context) {
+    final (color, icon) = switch (presence.state) {
+      'practicing' => (verdictOk, Icons.edit_rounded),
+      'idle' => (const Color(0xFFB26A00), Icons.hourglass_bottom_rounded),
+      'away' => (const Color(0xFF8A6D3B), Icons.exit_to_app_rounded),
+      'done' => (verdictOk, Icons.check_circle_rounded),
+      _ => (textMuted, Icons.cloud_off_rounded),
+    };
+    final step = progress?.label ?? '';
+    return Row(
+      mainAxisSize: MainAxisSize.min,
+      children: [
+        Icon(icon, size: 15, color: color),
+        const SizedBox(width: 5),
+        Flexible(
+          child: Text(
+            presence.label,
+            style: TextStyle(color: color, fontSize: 12.5),
+          ),
+        ),
+        if (step.isNotEmpty) ...[
+          const SizedBox(width: 10),
+          Icon(Icons.format_list_numbered_rounded, size: 14, color: textMuted),
+          const SizedBox(width: 4),
+          Flexible(
+            child: Text(
+              step,
+              style: const TextStyle(color: textMuted, fontSize: 12.5),
+            ),
+          ),
+        ],
+      ],
     );
   }
 }

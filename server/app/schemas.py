@@ -157,3 +157,42 @@ class JournalOut(BaseModel):
     revision: int
     payload: dict[str, Any]
     updated_at: datetime
+
+
+class PresenceIn(BaseModel):
+    """孩子端心跳。只上报素材，状态由服务端推导。"""
+
+    # 客户端本地日期，避免服务器时区与本机不一致时记到别的日子
+    date: Optional[str] = Field(default=None, pattern=r"^\d{4}-\d{2}-\d{2}$")
+    practice_id: Optional[str] = Field(default=None, max_length=64)
+    # 页面当前是否可见（切到别的标签页 / 最小化时为 False）
+    visible: bool = True
+    # 距最近一次落笔多少秒；本次练习还没落笔时为 None。
+    # 上报时间差而不是布尔值：布尔值一旦为真就永远为真，
+    # 停笔的孩子会被一直算作「正在练习」。
+    last_stroke_age_seconds: Optional[int] = Field(
+        default=None, ge=0, le=86_400 * 7
+    )
+    # 以下几项均为累计值，服务端只取最大值
+    strokes: int = Field(default=0, ge=0, le=1_000_000)
+    away_count: int = Field(default=0, ge=0, le=1_000_000)
+    away_seconds: int = Field(default=0, ge=0, le=86_400 * 7)
+    active_seconds: int = Field(default=0, ge=0, le=86_400 * 7)
+    # 今天这一组是否已经提交完成
+    done: bool = False
+
+
+class PresenceOut(BaseModel):
+    child_id: uuid.UUID
+    child_name: Optional[str] = None
+    day: Optional[str] = None
+    state: str = "offline"
+    practice_id: Optional[str] = None
+    online_seconds: Optional[int] = None
+    away_seconds_now: Optional[int] = None
+    strokes: int = 0
+    away_count: int = 0
+    away_seconds: int = 0
+    active_seconds: int = 0
+    done: bool = False
+    last_seen_at: Optional[datetime] = None

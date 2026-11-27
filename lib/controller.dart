@@ -95,6 +95,13 @@ class Controller extends ChangeNotifier {
     return persist();
   }
 
+  /// 家长调整每次练习的新词数量；对已存在的草稿不生效，从下一次练习开始
+  Future<bool> setSize(int size) {
+    data.size = size.clamp(1, 20);
+    notifyListeners();
+    return persist();
+  }
+
   Future<bool> replaceLibrary(Library library) {
     if (data.draft != null) throw StateError('请先完成当前练习');
     data.library = library;

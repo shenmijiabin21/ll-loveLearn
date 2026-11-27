@@ -45,6 +45,14 @@ uvicorn app.main:app --reload
 其他：
 
 - `POST /grade` —— 笔迹 -> 栅格化 -> 识别 -> verdict；`items` 每项是一个田字格的笔迹（`expected` 为这一格应该写的字），默写词语时按字逐个提交；`allowed` 为本次练习涉及的候选字集合（最多 120 项 / 200 字）
+
+家长端实时监控：
+
+- `POST /children/{id}/presence` —— 孩子端心跳，只报素材（可见性、距上次落笔多少秒、累计笔数/时长、今天是否已提交），**状态由服务端按时间差推导**，客户端自报的状态不作数；每次上报成功都会立刻向 WebSocket 订阅者推 `presence`
+- `GET  /children/presence` —— 首屏与断线兜底，一次取全部可见孩子的状态
+- `GET  /children/{id}/presence` —— 单个孩子
+- `WS   /ws/live?token=JWT` —— 家长端实时通道。首帧 `snapshot`（全部可见孩子的状态），之后服务端主动推 `presence`（状态变化）与 `progress`（第几题 / 已写几题 / 是否已提交），每 10 秒补推一次 snapshot，让「正在练习 → 空闲 → 离线」随时间自然过渡。浏览器不能给 WebSocket 带自定义头，所以令牌走查询参数，连接后立即校验签名与 `token_version`
+- 状态取值：`practicing` 在写 / `idle` 开着页面但停笔超过 180 秒 / `away` 切走页面 / `done` 今天这一组已提交 / `offline` 心跳超时 90 秒
 - `GET  /health` —— 顺带检查数据库连通性
 
 接口文档：启动后访问 `http://localhost:8000/docs`。

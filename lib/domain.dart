@@ -12,6 +12,19 @@ const volumes = {
   '2a': '二年级上册',
 };
 const _positions = ['一', '二', '三', '四', '五', '六', '七', '八'];
+
+/// 每次练习的**新词**数量：默认 5 个，家长可在「练习设置」里改。
+/// 到期的复习词不占这个名额，是额外加上的（见 [maxReviewPerDay]）。
+const defaultPracticeSize = 5;
+
+/// 设置页给出的可选新词数量。上限 10：再多的词孩子一次写完太久，
+/// 而且一次批改的格子数也要跟着涨（服务端上限 120 格）。
+const practiceSizes = [3, 4, 5, 6, 8, 10];
+
+/// 单次练习最多安排几个到期复习词。复习不占新词名额，但仍要有上限，
+/// 否则攒了十几天的错词会一次性压给孩子。
+const maxReviewPerDay = 5;
+const _maxPracticeSize = 20;
 final _han = RegExp(r'^\p{Script=Han}$', unicode: true);
 
 Json object(Object? value) {
@@ -401,14 +414,23 @@ class Focus {
 }
 
 class Journal {
-  Journal(this.library, {this.start, this.draft, List<Practice>? history})
-    : history = history ?? [];
+  Journal(
+    this.library, {
+    this.start,
+    this.size = defaultPracticeSize,
+    this.draft,
+    List<Practice>? history,
+  }) : history = history ?? [];
 
   factory Journal.fromJson(Object? value) {
     final json = object(value);
     if (json['schema'] != 1) throw const FormatException('备份版本不受支持');
     final library = Library.fromJson(json['library']);
     final start = json['start'] == null ? null : field(json['start'], 20);
+    // 旧备份没有 size 字段，按默认值处理
+    final size = json['size'] == null
+        ? defaultPracticeSize
+        : integer(json['size'], 1, _maxPracticeSize);
     final draft = json['draft'] == null
         ? null
         : Practice.fromJson(json['draft']);
@@ -422,11 +444,20 @@ class Journal {
         history.any((practice) => !practice.submitted)) {
       throw const FormatException('备份中的练习或课程状态有冲突');
     }
-    return Journal(library, start: start, draft: draft, history: history);
+    return Journal(
+      library,
+      start: start,
+      size: size,
+      draft: draft,
+      history: history,
+    );
   }
 
   Library library;
   String? start;
+
+  /// 每次练习出几个词（家长可在设置里改）
+  int size;
   Practice? draft;
   final List<Practice> history;
 
@@ -475,9 +506,11 @@ class Journal {
 
   List<Question> dailyQuestions(String today) {
     if (completedOn(today) != null) return [];
+    // 到期的复习词先排上去，但它们不占新词名额：新词照设置的个数给，
+    // 复习词最多 [maxReviewPerDay] 个，避免攒了十几天的错词一次压下来。
     final due = focus
         .where((entry) => entry.due.compareTo(today) <= 0)
-        .take(5)
+        .take(maxReviewPerDay)
         .map((entry) => reviewQuestion(entry))
         .toList();
     final phrases = due.map((question) => question.prompt.phrase).toSet();
@@ -496,7 +529,7 @@ class Journal {
         final id = '${library.edition}/${lesson.key}/${word.phrase}';
         if (!seen.contains(id) && phrases.add(word.phrase)) {
           fresh.add(Question(id, word, lesson.label, false));
-          if (fresh.length == 5) return [...due, ...fresh];
+          if (fresh.length == size) return [...due, ...fresh];
         }
       }
     }
@@ -514,6 +547,7 @@ class Journal {
     'schema': 1,
     'library': library,
     'start': start,
+    'size': size,
     'draft': draft,
     'history': history,
   };

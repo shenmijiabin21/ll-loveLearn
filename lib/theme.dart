@@ -95,14 +95,18 @@ class Panel extends StatelessWidget {
   final Color color;
 
   @override
-  Widget build(BuildContext context) => Container(
-    margin: const EdgeInsets.only(bottom: 12),
-    clipBehavior: Clip.antiAlias,
-    decoration: BoxDecoration(
+  Widget build(BuildContext context) => Padding(
+    padding: const EdgeInsets.only(bottom: 12),
+    // 用 Material 而不是带背景色的 Container：ListTile 的水波纹要画在最近的
+    // Material 上，夹一层有背景的 DecoratedBox 会把它遮住（debug 下直接断言）。
+    child: Material(
       color: color,
-      borderRadius: BorderRadius.circular(20),
-      border: Border.all(color: const Color(0xFFDCE3D7)),
+      clipBehavior: Clip.antiAlias,
+      shape: RoundedRectangleBorder(
+        borderRadius: BorderRadius.circular(20),
+        side: const BorderSide(color: Color(0xFFDCE3D7)),
+      ),
+      child: child,
     ),
-    child: child,
   );
 }

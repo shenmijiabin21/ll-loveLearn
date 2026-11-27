@@ -10,6 +10,7 @@ import 'controller.dart';
 import 'device.dart';
 import 'domain.dart';
 import 'main.dart';
+import 'presence.dart';
 import 'remote.dart';
 
 Color _frameColor(Verdict? verdict) => switch (verdict) {
@@ -44,6 +45,9 @@ class _PracticePageState extends ConsumerState<PracticePage>
   Answer get answer => practice.answers[practice.index];
   late final Speech _speech;
   late final Controller _controller;
+
+  /// 网页端学生练习的状态上报器；手机端与测试里为 null
+  PracticePresence? _presence;
   bool _busy = false;
   bool _playing = false;
   /// 默写整个词语，田字格逐字排列；[_focus] 记录最近落笔的格子。
@@ -82,6 +86,9 @@ class _PracticePageState extends ConsumerState<PracticePage>
     super.initState();
     _speech = ref.read(speechProvider);
     _controller = ref.read(controllerProvider);
+    _presence = ref.read(presenceProvider);
+    // 已提交的练习只是回看，不需要上报「正在练习」
+    if (!practice.submitted) _presence?.start(practice.id);
     WidgetsBinding.instance.addObserver(this);
   }
 
@@ -96,6 +103,7 @@ class _PracticePageState extends ConsumerState<PracticePage>
   @override
   void dispose() {
     WidgetsBinding.instance.removeObserver(this);
+    _presence?.stop();
     unawaited(_speech.stop());
     // 这里不能 persist()：dispose 期间 notifyListeners 会触发
     // "Tried to modify a provider while the widget tree was building"。
@@ -117,6 +125,8 @@ class _PracticePageState extends ConsumerState<PracticePage>
     if (skip) answer.skipped = true;
     practice.index = index;
     _save();
+    // 换题立刻同步给家长端，不必等下一次心跳
+    _presence?.flushNow();
   }
 
   Future<void> _play() async {
@@ -190,6 +200,8 @@ class _PracticePageState extends ConsumerState<PracticePage>
       if (!mounted) return;
       await _controller.submit(practice, grades);
       if (!mounted) return;
+      // 告诉服务端「今天这一组完成了」：家长端立刻显示已完成，而不是等超时变离线
+      _presence?.finish();
       setState(() => _busy = false);
       Navigator.of(context).pushReplacement(
         MaterialPageRoute<void>(builder: (_) => ResultPage(practice: practice)),
@@ -375,6 +387,7 @@ class _PracticePageState extends ConsumerState<PracticePage>
                                                 answer.cells[i].add(stroke);
                                                 answer.skipped = false;
                                                 _focus = i;
+                                                _presence?.stroke();
                                                 _save();
                                               },
                                             ),

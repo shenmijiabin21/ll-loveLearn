@@ -156,6 +156,82 @@ void main() {
     expect(combineCells([Verdict.blank, Verdict.blank]), Verdict.blank);
   });
 
+  test('新词数量可配置，复习词不占名额，旧备份按默认值', () {
+    final journal = Journal(demo());
+    expect(journal.size, defaultPracticeSize);
+    expect(journal.dailyQuestions(today), hasLength(defaultPracticeSize));
+
+    journal.size = 3;
+    expect(journal.dailyQuestions(today), hasLength(3));
+    journal.size = 10;
+    expect(journal.dailyQuestions(today), hasLength(10));
+
+    // 复习词额外加：1 个到期复习词 + 设置里 2 个新词 = 3 题
+    final first = Journal(demo()).dailyQuestions(today).first;
+    journal.history.add(
+      Practice('rev', '2026-11-24', true, [
+        Answer(
+          Question(first.id, first.prompt, first.lesson, false),
+          automatic: Verdict.wrong,
+        ),
+      ], submitted: true),
+    );
+    journal.size = 2;
+    final questions = journal.dailyQuestions(today);
+    expect(questions, hasLength(2 + 1));
+    expect(questions.first.review, isTrue);
+    expect(questions.first.prompt.phrase, first.prompt.phrase);
+    expect(questions.skip(1).every((question) => !question.review), isTrue);
+
+    // 复习词也有上限，不会因为攒了很多错词就一次压给孩子
+    for (var i = 0; i < maxReviewPerDay + 3; i++) {
+      final extra = Journal(demo())
+          .library
+          .lessons
+          .expand((lesson) => lesson.words)
+          .elementAt(i);
+      journal.history.add(
+        Practice(
+          'rev$i',
+          daysAfter('2026-11-24', i),
+          false,
+          [
+            Answer(
+              Question(
+                'demo/rev$i',
+                extra,
+                '三年级上册 · 第 1 课',
+                false,
+              ),
+              automatic: Verdict.wrong,
+            ),
+          ],
+          submitted: true,
+        ),
+      );
+    }
+    final capped = journal.dailyQuestions('2026-11-30');
+    final reviews = capped.where((question) => question.review).length;
+    expect(reviews, lessThanOrEqualTo(maxReviewPerDay));
+    expect(capped.length, lessThanOrEqualTo(maxReviewPerDay + journal.size));
+
+    // 落盘往返保留设置
+    final restored = Journal.fromJson(
+      jsonDecode(jsonEncode(journal.toJson())),
+    );
+    expect(restored.size, 2);
+
+    // 旧备份没有 size 字段 → 默认 5
+    final legacy =
+        jsonDecode(jsonEncode(journal.toJson())) as Map<String, dynamic>;
+    legacy.remove('size');
+    expect(Journal.fromJson(legacy).size, defaultPracticeSize);
+
+    // 越界值会被拒绝
+    legacy['size'] = 99;
+    expect(() => Journal.fromJson(legacy), throwsFormatException);
+  });
+
   test('review reschedules at 1, 3 and 7 days and uses parent verdicts', () {
     final journal = Journal(demo());
     final question = journal.dailyQuestions(today).first;

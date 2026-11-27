@@ -12,7 +12,6 @@ import 'web_bridge_stub.dart'
     if (dart.library.js_interop) 'web_bridge.dart'
     as bridge;
 import 'device.dart';
-import 'domain.dart';
 import 'main.dart';
 
 class SettingsPage extends ConsumerStatefulWidget {
@@ -170,8 +169,7 @@ class _SettingsPageState extends ConsumerState<SettingsPage> {
     return lesson == null ? start : '${lesson.label} · ${lesson.title}';
   }
 
-  Future<void> _pickStart(Controller controller) async {
-    final journal = controller.data;
+  Future<void> _pickStart(Controller controller) async {    final journal = controller.data;
     final grouped = <String, List<Lesson>>{};
     for (final lesson in journal.library.lessons) {
       (grouped[lesson.volume] ??= <Lesson>[]).add(lesson);
@@ -225,6 +223,13 @@ class _SettingsPageState extends ConsumerState<SettingsPage> {
     await controller.persist();
   }
 
+  /// 调整每次练习的新词数量。已在写的草稿不受影响，从下一组开始生效。
+  Future<void> _setSize(Controller controller, int size) => _run(() async {
+    await controller.setSize(size);
+    await controller.flush();
+    _message('每次练习 $size 个新词。');
+  });
+
   @override
   Widget build(BuildContext context) {
     final controller = ref.watch(controllerProvider);
@@ -275,6 +280,57 @@ class _SettingsPageState extends ConsumerState<SettingsPage> {
                     : () => _importLibrary(controller),
               ),
             ],
+          ),
+        ),
+        Panel(
+          child: Padding(
+            padding: const EdgeInsets.fromLTRB(16, 12, 16, 14),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Row(
+                  children: [
+                    const Icon(Icons.tune_rounded, color: forest),
+                    const SizedBox(width: 12),
+                    Expanded(
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          const Text(
+                            '每次练习新词数量',
+                            style: TextStyle(fontSize: 16),
+                          ),
+                          Text(
+                            '每天 ${journal.size} 个新词 · 到期的复习词另算'
+                            '（最多 $maxReviewPerDay 个）'
+                            '${hasDraft ? ' · 正在写的这组不变，下一组生效' : ''}',
+                            style: const TextStyle(
+                              color: textMuted,
+                              fontSize: 12,
+                            ),
+                          ),
+                        ],
+                      ),
+                    ),
+                  ],
+                ),
+                const SizedBox(height: 10),
+                Wrap(
+                  spacing: 8,
+                  runSpacing: 6,
+                  children: [
+                    for (final size in practiceSizes)
+                      ChoiceChip(
+                        label: Text('$size 个'),
+                        selected: journal.size == size,
+                        onSelected: _busy
+                            ? null
+                            : (_) => _setSize(controller, size),
+                      ),
+                  ],
+                ),
+              ],
+            ),
           ),
         ),
         Panel(
