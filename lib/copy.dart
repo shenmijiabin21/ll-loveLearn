@@ -41,7 +41,11 @@ class CopyListPage extends ConsumerWidget {
                   ),
                 ),
                 title: Text(question.prompt.phrase),
-                subtitle: Text(question.lesson),
+                subtitle: Text(
+                  question.prompt.hasPinyin
+                      ? '${question.prompt.pinyinText} · ${question.lesson}'
+                      : question.lesson,
+                ),
                 trailing: const Icon(Icons.chevron_right),
                 onTap: () => Navigator.of(context).push(
                   MaterialPageRoute<void>(

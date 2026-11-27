@@ -1,3 +1,6 @@
+import 'pinyin.dart';
+import 'sentences.dart';
+
 typedef Json = Map<String, dynamic>;
 typedef Ink = List<List<InkPoint>>;
 
@@ -76,7 +79,28 @@ class Prompt {
   final String character;
   final String phrase;
   final int position;
-  String get speech => '$phrase。请写第${_positions[position - 1]}个字。$phrase。';
+
+  /// 词语逐字拆分：默写时每个字一个田字格。
+  List<String> get letters => phrase.runes.map(String.fromCharCode).toList();
+
+  /// 与 [letters] 对齐的拼音音节；查不到时为空字符串。
+  List<String> get syllables => PinyinBook.of(phrase);
+
+  /// 连写拼音，用于界面展示（如 `liǎng gè`）。
+  String get pinyinText => syllables.where((syllable) => syllable.isNotEmpty).join(' ');
+
+  bool get hasPinyin => syllables.any((syllable) => syllable.isNotEmpty);
+
+  /// 这个词语的例句；查不到时为 null。
+  String? get sentence => SentenceBook.of(phrase);
+
+  /// 读题语句：先读例句，再指定例句里要默写的词语。
+  String get speech {
+    final example = sentence;
+    if (example == null) return '请默写词语：$phrase。$phrase。';
+    return '$example请写这句话里的词语：$phrase。';
+  }
+
   Json toJson() => {
     'character': character,
     'phrase': phrase,
@@ -215,53 +239,107 @@ class Question {
   };
 }
 
+/// 把一个词语各格的识别结果合并成整词的判定：
+/// 全部写对才算正确；只要有一格判错，整词判错；写空或不确定都交给家长。
+Verdict combineCells(List<Verdict> cells) {
+  if (cells.isEmpty) return Verdict.blank;
+  if (cells.every((verdict) => verdict == Verdict.blank)) return Verdict.blank;
+  if (cells.any((verdict) => verdict == Verdict.wrong)) return Verdict.wrong;
+  if (cells.any(
+    (verdict) => verdict == Verdict.pending || verdict == Verdict.blank,
+  )) {
+    return Verdict.pending;
+  }
+  return Verdict.correct;
+}
+
 class Answer {
   Answer(
     this.question, {
-    Ink? ink,
+    List<Ink>? cells,
     this.skipped = false,
     this.automatic,
     this.override,
-    this.candidates = const [],
-  }) : ink = ink ?? [];
+    this.cellVerdicts = const [],
+    this.cellCandidates = const [],
+  }) : cells = _fit(cells, question.prompt.letters.length);
 
   factory Answer.fromJson(Object? value) {
     final json = object(value);
-    final ink = items(
-      json['ink'],
-      (stroke) => items(stroke, InkPoint.fromJson, 4096),
-      128,
-    );
-    if (ink.any((stroke) => stroke.isEmpty)) {
+    final question = Question.fromJson(json['question']);
+    final letters = question.prompt.letters.length;
+    final List<Ink> cells;
+    if (json['cells'] != null) {
+      cells = _fit(items(json['cells'], _parseInk, 32), letters);
+    } else {
+      // 兼容旧数据：整词只有一个目标字，笔迹存在 ink 里
+      cells = _fit([_parseInk(json['ink'])], letters);
+    }
+    if (cells.any((cell) => cell.any((stroke) => stroke.isEmpty))) {
       throw const FormatException('笔迹为空');
     }
     return Answer(
-      Question.fromJson(json['question']),
-      ink: ink,
+      question,
+      cells: cells,
       skipped: json['skipped'] as bool,
       automatic: _verdict(json['automatic']),
       override: _verdict(json['override']),
-      candidates: items(json['candidates'], (v) => field(v, 32), 5),
+      cellVerdicts: json['cellVerdicts'] == null
+          ? const []
+          : [
+              for (final item in items(json['cellVerdicts'], (v) => v, 32))
+                _verdict(item) ?? Verdict.pending,
+            ],
+      cellCandidates: json['cellCandidates'] == null
+          ? const []
+          : [
+              for (final item in items(json['cellCandidates'], (v) => v, 32))
+                items(item, (v) => field(v, 32), 5),
+            ],
     );
   }
+
+  static Ink _parseInk(Object? value) =>
+      items(value, (stroke) => items(stroke, InkPoint.fromJson, 4096), 128);
+
+  static List<Ink> _fit(List<Ink>? cells, int count) => [
+    for (var i = 0; i < count; i++)
+      i < (cells?.length ?? 0) ? List.of(cells![i]) : <List<InkPoint>>[],
+  ];
 
   static Verdict? _verdict(Object? value) =>
       value == null ? null : Verdict.values.byName(field(value, 12));
 
+  final List<Ink> cells;
   final Question question;
-  final Ink ink;
   bool skipped;
   Verdict? automatic;
   Verdict? override;
-  List<String> candidates;
+  List<Verdict> cellVerdicts;
+  List<List<String>> cellCandidates;
+
+  /// 整词判定；没有逐格结果时（旧数据或识别不可用）退回自动判定。
   Verdict? get verdict => override ?? automatic;
+
+  Verdict? cellVerdict(int index) =>
+      index < cellVerdicts.length ? cellVerdicts[index] : null;
+
+  List<String> cellCandidate(int index) =>
+      index < cellCandidates.length ? cellCandidates[index] : const [];
+
+  int get strokeCount =>
+      cells.fold(0, (total, cell) => total + cell.length);
+
+  bool get untouched => strokeCount == 0;
+
   Json toJson() => {
     'question': question,
-    'ink': ink,
+    'cells': cells,
     'skipped': skipped,
     'automatic': automatic?.name,
     'override': override?.name,
-    'candidates': candidates,
+    'cellVerdicts': [for (final verdict in cellVerdicts) verdict.name],
+    'cellCandidates': cellCandidates,
   };
 }
 
@@ -360,7 +438,7 @@ class Journal {
     final entries = <String, Focus>{};
     for (final practice in history) {
       for (final answer in practice.answers) {
-        final key = answer.question.prompt.character;
+        final key = answer.question.prompt.phrase;
         final verdict = answer.verdict;
         if (verdict == Verdict.wrong || verdict == Verdict.blank) {
           final entry = entries.putIfAbsent(
@@ -402,7 +480,7 @@ class Journal {
         .take(5)
         .map((entry) => reviewQuestion(entry))
         .toList();
-    final characters = due.map((question) => question.prompt.character).toSet();
+    final phrases = due.map((question) => question.prompt.phrase).toSet();
     final seen = history
         .expand((practice) => practice.answers)
         .where((answer) => !answer.question.review)
@@ -415,8 +493,8 @@ class Journal {
     final fresh = <Question>[];
     for (final lesson in lessons.skip(first)) {
       for (final word in lesson.words) {
-        final id = '${library.edition}/${lesson.key}/${word.character}';
-        if (!seen.contains(id) && characters.add(word.character)) {
+        final id = '${library.edition}/${lesson.key}/${word.phrase}';
+        if (!seen.contains(id) && phrases.add(word.phrase)) {
           fresh.add(Question(id, word, lesson.label, false));
           if (fresh.length == 5) return [...due, ...fresh];
         }

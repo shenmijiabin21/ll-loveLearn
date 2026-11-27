@@ -322,7 +322,9 @@ class _SettingsPageState extends ConsumerState<SettingsPage> {
                     : () => _run(() async {
                         final played = await ref
                             .read(speechProvider)
-                            .play('每日听写。请写观察的第一个字。');
+                            .play(
+                              '树上有两个红苹果。请写这句话里的词语：两个。',
+                            );
                         _message(played ? '正在播放。' : '系统普通话语音暂不可用。');
                       }),
               ),

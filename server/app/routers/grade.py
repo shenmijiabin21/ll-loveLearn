@@ -16,9 +16,10 @@ class GradeItem(BaseModel):
 
 
 class GradeIn(BaseModel):
-    items: list[GradeItem] = Field(min_length=1, max_length=20)
+    # 默写整个词语：一次提交的 item 是逐字的格子，10 个词最多 40 格
+    items: list[GradeItem] = Field(min_length=1, max_length=120)
     # 本次练习涉及的字（候选字约束），不含则按开集识别
-    allowed: list[str] = Field(default_factory=list, max_length=60)
+    allowed: list[str] = Field(default_factory=list, max_length=200)
 
 
 class GradeResult(BaseModel):

@@ -1,6 +1,5 @@
 import 'dart:async';
 import 'dart:math' as math;
-import 'dart:ui' as ui;
 import 'dart:ui' show PointMode;
 
 import 'package:flutter/gestures.dart';
@@ -47,7 +46,35 @@ class _PracticePageState extends ConsumerState<PracticePage>
   late final Controller _controller;
   bool _busy = false;
   bool _playing = false;
+  /// 默写整个词语，田字格逐字排列；[_focus] 记录最近落笔的格子。
+  int _focus = 0;
+  bool _showPinyin = true;
 
+  bool get _anyInk => answer.cells.any((cell) => cell.isNotEmpty);
+
+  void _undo() {
+    var target = _focus.clamp(0, answer.cells.length - 1);
+    if (answer.cells[target].isEmpty) {
+      for (var i = answer.cells.length - 1; i >= 0; i--) {
+        if (answer.cells[i].isNotEmpty) {
+          target = i;
+          break;
+        }
+      }
+    }
+    if (answer.cells[target].isEmpty) return;
+    answer.cells[target].removeLast();
+    _focus = target;
+    _save();
+  }
+
+  void _clear() {
+    for (final cell in answer.cells) {
+      cell.clear();
+    }
+    _focus = 0;
+    _save();
+  }
 
 
   @override
@@ -130,7 +157,7 @@ class _PracticePageState extends ConsumerState<PracticePage>
 
   Future<void> _submit() async {
     if (_busy || _playing) return;
-    final blanks = practice.answers.where((item) => item.ink.isEmpty).length;
+    final blanks = practice.answers.where((item) => item.untouched).length;
     final confirmed = await showDialog<bool>(
       context: context,
       builder: (context) => AlertDialog(
@@ -207,17 +234,36 @@ class _PracticePageState extends ConsumerState<PracticePage>
                             borderRadius: BorderRadius.circular(10),
                           ),
                           const SizedBox(height: 10),
-                          Text(
-                            '第 ${practice.index + 1} 题，共 ${practice.answers.length} 题',
-                            style: const TextStyle(
-                              fontSize: 22,
-                              fontWeight: FontWeight.w800,
-                              color: forest,
-                            ),
+                          Row(
+                            children: [
+                              Expanded(
+                                child: Text(
+                                  '第 ${practice.index + 1} 题，共 ${practice.answers.length} 题',
+                                  style: const TextStyle(
+                                    fontSize: 22,
+                                    fontWeight: FontWeight.w800,
+                                    color: forest,
+                                  ),
+                                ),
+                              ),
+                              TextButton.icon(
+                                onPressed: () => setState(
+                                  () => _showPinyin = !_showPinyin,
+                                ),
+                                icon: Icon(
+                                  _showPinyin
+                                      ? Icons.visibility_off_outlined
+                                      : Icons.visibility_outlined,
+                                  size: 18,
+                                ),
+                                label: Text(_showPinyin ? '隐藏拼音' : '显示拼音'),
+                              ),
+                            ],
                           ),
                           const SizedBox(height: 2),
                           Text(
-                            '${answer.question.review ? '复习字' : '新字'} · ${answer.question.lesson}',
+                            '${answer.question.review ? '复习词' : '新词'} · ${answer.question.lesson}'
+                            ' · ${answer.question.prompt.phrase.length} 个字',
                             style: const TextStyle(
                               color: textMuted,
                               fontSize: 12,
@@ -235,7 +281,7 @@ class _PracticePageState extends ConsumerState<PracticePage>
                                 label: const Text('播放题目'),
                               ),
                               const Text(
-                                '听清词语，再写进田字格。',
+                                '先听例句，再听要写的词语，按顺序把每个字写进田字格。',
                                 style: TextStyle(
                                   color: textMuted,
                                   fontSize: 12,
@@ -255,7 +301,8 @@ class _PracticePageState extends ConsumerState<PracticePage>
                               )
                                 ChoiceChip(
                                   label: Text('${i + 1}'),
-                                  avatar: practice.answers[i].ink.isNotEmpty
+                                  avatar:
+                                      practice.answers[i].strokeCount > 0
                                       ? const Icon(
                                           Icons.edit_outlined,
                                           size: 14,
@@ -272,25 +319,69 @@ class _PracticePageState extends ConsumerState<PracticePage>
                           Expanded(
                             child: LayoutBuilder(
                               builder: (context, box) {
-                                // 听写只给空格子：笔顺引导属于「练习」功能
+                                // 听写只给空格子：笔顺引导属于「练习」功能。
+                                // 词语逐字一个格子，宽屏并排、窄屏一起缩放。
+                                final prompt = answer.question.prompt;
+                                final letters = prompt.letters;
+                                final syllables = prompt.syllables;
+                                final count = math.max(1, letters.length);
+                                const gap = 10.0;
+                                final labelHeight = _showPinyin ? 26.0 : 0.0;
+                                final fitWidth =
+                                    (box.maxWidth - gap * (count - 1)) / count;
                                 final side = math.max(
-                                  120.0,
+                                  48.0,
                                   math.min(
-                                    390.0,
-                                    math.min(box.maxWidth, box.maxHeight),
+                                    200.0,
+                                    math.min(
+                                      fitWidth,
+                                      box.maxHeight - labelHeight,
+                                    ),
                                   ),
                                 );
                                 return Center(
-                                  child: InkBoard(
-                                    key: ValueKey(practice.index),
-                                    ink: answer.ink,
-                                    enabled: !_busy,
-                                    size: side,
-                                    onStroke: (stroke) {
-                                      answer.ink.add(stroke);
-                                      answer.skipped = false;
-                                      _save();
-                                    },
+                                  child: Row(
+                                    mainAxisSize: MainAxisSize.min,
+                                    mainAxisAlignment: MainAxisAlignment.center,
+                                    children: [
+                                      for (var i = 0; i < count; i++) ...[
+                                        if (i > 0) const SizedBox(width: gap),
+                                        Column(
+                                          mainAxisSize: MainAxisSize.min,
+                                          children: [
+                                            SizedBox(
+                                              height: labelHeight,
+                                              child: Center(
+                                                child: Text(
+                                                  _showPinyin
+                                                      ? syllables[i]
+                                                      : '',
+                                                  style: const TextStyle(
+                                                    fontSize: 17,
+                                                    fontWeight: FontWeight.w700,
+                                                    color: forest,
+                                                  ),
+                                                ),
+                                              ),
+                                            ),
+                                            InkBoard(
+                                              key: ValueKey(
+                                                '${practice.index}-$i',
+                                              ),
+                                              ink: answer.cells[i],
+                                              enabled: !_busy,
+                                              size: side,
+                                              onStroke: (stroke) {
+                                                answer.cells[i].add(stroke);
+                                                answer.skipped = false;
+                                                _focus = i;
+                                                _save();
+                                              },
+                                            ),
+                                          ],
+                                        ),
+                                      ],
+                                    ],
                                   ),
                                 );
                               },
@@ -302,22 +393,12 @@ class _PracticePageState extends ConsumerState<PracticePage>
                             spacing: 8,
                             children: [
                               TextButton.icon(
-                                onPressed: _busy || answer.ink.isEmpty
-                                    ? null
-                                    : () {
-                                        answer.ink.removeLast();
-                                        _save();
-                                      },
+                                onPressed: _busy || !_anyInk ? null : _undo,
                                 icon: const Icon(Icons.undo),
                                 label: const Text('撤销'),
                               ),
                               TextButton.icon(
-                                onPressed: _busy || answer.ink.isEmpty
-                                    ? null
-                                    : () {
-                                        answer.ink.clear();
-                                        _save();
-                                      },
+                                onPressed: _busy || !_anyInk ? null : _clear,
                                 icon: const Icon(Icons.delete_outline),
                                 label: const Text('清空'),
                               ),
@@ -638,97 +719,156 @@ class ResultPage extends ConsumerWidget {
                     Panel(
                       child: Padding(
                         padding: const EdgeInsets.all(14),
-                        child: Row(
+                        child: Column(
                           crossAxisAlignment: CrossAxisAlignment.start,
                           children: [
-                            Container(
-                              decoration: BoxDecoration(
-                                borderRadius: BorderRadius.circular(6),
-                                border: Border.all(
-                                  color: _frameColor(answer.verdict),
-                                  width:
-                                      answer.verdict == Verdict.correct ||
-                                          answer.verdict == Verdict.pending
-                                      ? 2.5
-                                      : 1,
-                                ),
-                              ),
-                              child: InkBoard(
-                                ink: answer.ink,
-                                size: 78,
-                                enabled: false,
-                              ),
-                            ),
-                            const SizedBox(width: 12),
-                            Expanded(
-                              child: Column(
-                                crossAxisAlignment: CrossAxisAlignment.start,
-                                children: [
-                                  Text(
-                                    '${index + 1}. ${answer.question.prompt.character} · ${answer.question.prompt.phrase}',
-                                    style: const TextStyle(
-                                      fontWeight: FontWeight.w800,
-                                      fontSize: 18,
-                                    ),
-                                  ),
-                                  Text(
-                                    '${answer.verdict?.label ?? '待确认'}${answer.override == null ? '' : ' · 家长订正'}',
-                                  ),
-                                  if (answer.candidates.isNotEmpty) ...[
-                                    Text(
-                                      '识别 ${answer.candidates.first}',
-                                      style: TextStyle(
-                                        fontWeight: FontWeight.w700,
-                                        color: _frameColor(answer.verdict),
-                                      ),
-                                    ),
-                                    if (answer.candidates.length > 1)
-                                      Text(
-                                        '其他候选 ${answer.candidates.skip(1).join('、')}',
-                                        style: const TextStyle(
-                                          color: textMuted,
-                                          fontSize: 12,
-                                        ),
-                                      ),
-                                  ],
-                                  Wrap(
+                            Wrap(
+                              spacing: 10,
+                              runSpacing: 6,
+                              crossAxisAlignment: WrapCrossAlignment.end,
+                              children: [
+                                for (
+                                  var cell = 0;
+                                  cell < answer.cells.length;
+                                  cell++
+                                )
+                                  Column(
+                                    mainAxisSize: MainAxisSize.min,
                                     children: [
-                                      TextButton(
-                                        onPressed: () => _correct(
-                                          context,
-                                          controller,
-                                          answer,
+                                      Text(
+                                        answer.question.prompt.syllables[cell],
+                                        style: const TextStyle(
+                                          fontSize: 12,
+                                          color: textMuted,
                                         ),
-                                        child: const Text('家长订正'),
                                       ),
-                                      if (answer.ink.isNotEmpty)
-                                        TextButton(
-                                          onPressed: () => showDialog<void>(
-                                            context: context,
-                                            builder: (context) => Dialog(
-                                              child: Padding(
-                                                padding: const EdgeInsets.all(
-                                                  14,
-                                                ),
-                                                child: InkBoard(
-                                                  ink: answer.ink,
-                                                  enabled: false,
-                                                  size: math.min(
-                                                    360.0,
-                                                    MediaQuery.sizeOf(context)
-                                                            .width -
-                                                        108,
-                                                  ),
-                                                ),
-                                              ),
-                                            ),
+                                      const SizedBox(height: 2),
+                                      Container(
+                                        decoration: BoxDecoration(
+                                          borderRadius: BorderRadius.circular(
+                                            6,
                                           ),
-                                          child: const Text('放大笔迹'),
+                                          border: Border.all(
+                                            color: _frameColor(
+                                              answer.cellVerdict(cell),
+                                            ),
+                                            width:
+                                                answer.cellVerdict(cell) ==
+                                                        Verdict.correct ||
+                                                    answer.cellVerdict(cell) ==
+                                                        Verdict.pending
+                                                ? 2.5
+                                                : 1,
+                                          ),
                                         ),
+                                        child: InkBoard(
+                                          ink: answer.cells[cell],
+                                          size: 74,
+                                          enabled: false,
+                                        ),
+                                      ),
                                     ],
                                   ),
-                                ],
+                              ],
+                            ),
+                            const SizedBox(height: 10),
+                            Text(
+                              '${index + 1}. ${answer.question.prompt.phrase}',
+                              style: const TextStyle(
+                                fontWeight: FontWeight.w800,
+                                fontSize: 18,
                               ),
+                            ),
+                            Text(
+                              answer.question.prompt.pinyinText,
+                              style: const TextStyle(
+                                color: textMuted,
+                                fontSize: 13,
+                              ),
+                            ),
+                            if (answer.question.prompt.sentence case final s?)
+                              Text(
+                                '例句：$s',
+                                style: const TextStyle(
+                                  color: textMuted,
+                                  fontSize: 13,
+                                ),
+                              ),
+                            Text(
+                              '${answer.verdict?.label ?? '待确认'}${answer.override == null ? '' : ' · 家长订正'}',
+                            ),
+                            Wrap(
+                              spacing: 10,
+                              runSpacing: 2,
+                              children: [
+                                for (
+                                  var cell = 0;
+                                  cell < answer.cells.length;
+                                  cell++
+                                )
+                                  if (answer.cellCandidate(cell).isNotEmpty)
+                                    Text(
+                                      '第 ${cell + 1} 字 ${answer.cellCandidate(cell).first}',
+                                      style: TextStyle(
+                                        fontWeight: FontWeight.w700,
+                                        color: _frameColor(
+                                          answer.cellVerdict(cell),
+                                        ),
+                                      ),
+                                    ),
+                              ],
+                            ),
+                            Wrap(
+                              children: [
+                                TextButton(
+                                  onPressed: () =>
+                                      _correct(context, controller, answer),
+                                  child: const Text('家长订正'),
+                                ),
+                                if (!answer.untouched)
+                                  TextButton(
+                                    onPressed: () => showDialog<void>(
+                                      context: context,
+                                      builder: (context) => Dialog(
+                                        child: Padding(
+                                          padding: const EdgeInsets.all(14),
+                                          child: SingleChildScrollView(
+                                            child: Row(
+                                              mainAxisSize: MainAxisSize.min,
+                                              children: [
+                                                for (
+                                                  var cell = 0;
+                                                  cell < answer.cells.length;
+                                                  cell++
+                                                ) ...[
+                                                  if (cell > 0)
+                                                    const SizedBox(width: 8),
+                                                  InkBoard(
+                                                    ink: answer.cells[cell],
+                                                    enabled: false,
+                                                    size: math.min(
+                                                      200,
+                                                      math.max(
+                                                        90,
+                                                        (MediaQuery.sizeOf(
+                                                                      context,
+                                                                        )
+                                                                    .width -
+                                                                120) /
+                                                            answer.cells.length,
+                                                      ),
+                                                    ),
+                                                  ),
+                                                ],
+                                              ],
+                                            ),
+                                          ),
+                                        ),
+                                      ),
+                                    ),
+                                    child: const Text('放大笔迹'),
+                                  ),
+                              ],
                             ),
                           ],
                         ),

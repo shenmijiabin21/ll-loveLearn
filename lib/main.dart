@@ -7,7 +7,9 @@ import 'package:material_ui/material_ui.dart';
 import 'controller.dart';
 import 'copy.dart';
 import 'domain.dart';
+import 'pinyin.dart';
 import 'practice.dart';
+import 'sentences.dart';
 import 'settings.dart';
 import 'theme.dart';
 import 'web_app.dart';
@@ -18,12 +20,16 @@ import 'web_bridge_stub.dart'
     if (dart.library.js_interop) 'web_bridge.dart'
     as bridge;
 
-void main() {
+Future<void> main() async {
+  WidgetsFlutterBinding.ensureInitialized();
   // 网页端禁用浏览器层滚动/下拉刷新，避免手写时整页跟着滑动
   if (kIsWeb) {
     bridge.lockPageScroll();
     bridge.warmUpSpeech();
   }
+  // 拼音表与例句表必须先就绪：默写页面要逐字显示拼音，读题要先读例句
+  await PinyinBook.load();
+  await SentenceBook.load();
   runApp(const ProviderScope(child: DictationApp()));
 }
 
@@ -242,7 +248,7 @@ class TodayPage extends ConsumerWidget {
     final date = DateTime.now();
     return PageBody(
       children: [
-        SectionTitle('今日听写', '${date.month} 月 ${date.day} 日 · 听词语，在田字格写字'),
+        SectionTitle('今日听写', '${date.month} 月 ${date.day} 日 · 听词语，整词默写进田字格'),
         Panel(
           color: forest,
           child: Stack(
@@ -282,8 +288,8 @@ class TodayPage extends ConsumerWidget {
                           : completed != null
                           ? '${completed.answers.length} 题 · ${completed.count(Verdict.correct)} 题正确'
                           : questions.isEmpty
-                          ? '今天没有新字或到期的复习字。'
-                          : '$count 个新字 · ${questions.length - count} 个复习字',
+                          ? '今天没有新词或到期的复习词。'
+                          : '$count 个新词 · ${questions.length - count} 个复习词',
                       style: const TextStyle(color: Color(0xFFECF2E9)),
                     ),
                     const SizedBox(height: 20),
@@ -346,12 +352,12 @@ class FocusPage extends ConsumerWidget {
     final draft = controller.data.draft;
     return PageBody(
       children: [
-        SectionTitle('重点复习', '汇总错字、空白和待确认字 · ${focus.length} 个待巩固'),
+        SectionTitle('重点复习', '汇总错词、空白和待确认词语 · ${focus.length} 个待巩固'),
         if (focus.isEmpty)
           const Panel(
             child: ListTile(
               leading: Icon(Icons.eco_outlined),
-              title: Text('目前没有待复习字。'),
+              title: Text('目前没有待复习的词语。'),
             ),
           )
         else ...[
@@ -363,7 +369,7 @@ class FocusPage extends ConsumerWidget {
                 if (practice != null) openPractice(context, practice);
               },
               icon: const Icon(Icons.edit_outlined),
-              label: Text(draft == null ? '复习重点字' : '继续当前练习'),
+              label: Text(draft == null ? '复习重点词语' : '继续当前练习'),
             ),
           ),
           const SizedBox(height: 16),
@@ -380,7 +386,7 @@ class FocusPage extends ConsumerWidget {
                 ),
                 title: Text(entry.question.prompt.phrase),
                 subtitle: Text(
-                  '${entry.pending ? '待确认 · ' : ''}错字或空白 ${entry.errors} 次 · 已巩固 ${entry.streak}/3',
+                  '${entry.pending ? '待确认 · ' : ''}错词或空白 ${entry.errors} 次 · 已巩固 ${entry.streak}/3',
                 ),
                 trailing: Text(
                   entry.due.compareTo(controller.today) <= 0

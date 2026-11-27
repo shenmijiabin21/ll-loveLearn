@@ -462,46 +462,87 @@ class WebGrader implements Grader {
 
   @override
   Future<List<Grade>> grade(List<Answer> answers) async {
+    // 默写的是整个词语，所以逐格提交：每个田字格一条 item，
+    // 返回结果按同一顺序回填到各自的格子里。
+    final items = <Map<String, dynamic>>[];
+    final slots = <({int answer, int cell})>[];
+    final allowed = <String>{};
+    for (var a = 0; a < answers.length; a++) {
+      final letters = answers[a].question.prompt.letters;
+      for (var c = 0; c < letters.length; c++) {
+        final ink = c < answers[a].cells.length
+            ? answers[a].cells[c]
+            : const <List<InkPoint>>[];
+        items.add({
+          'expected': letters[c],
+          'strokes': [
+            for (final stroke in ink)
+              [for (final point in stroke) [point.x, point.y, point.time]],
+          ],
+        });
+        slots.add((answer: a, cell: c));
+        allowed.add(letters[c]);
+      }
+    }
+    List<Grade> fallback() => [
+      for (final answer in answers)
+        (
+          verdict: answer.untouched ? Verdict.blank : Verdict.pending,
+          cells: [
+            for (var c = 0; c < answer.question.prompt.letters.length; c++)
+              (
+                verdict:
+                    c < answer.cells.length && answer.cells[c].isNotEmpty
+                    ? Verdict.pending
+                    : Verdict.blank,
+                candidates: const <String>[],
+              ),
+          ],
+        ),
+    ];
     try {
-      final items = [
-        for (final answer in answers)
-          {
-            'expected': answer.question.prompt.character,
-            'strokes': [
-              for (final stroke in answer.ink)
-                [
-                  for (final point in stroke) [point.x, point.y, point.time],
-                ],
-            ],
-          },
-      ];
-      // allowed 只用于把「待确认」升级成「正确」，开集结果不受影响
-      final allowed = {
-        for (final answer in answers) answer.question.prompt.character,
-      }.take(60).toList();
       final result =
           (await api.post(
                     '/grade',
-                    {'items': items, 'allowed': allowed},
+                    {
+                      'items': items,
+                      // allowed 只用于把「待确认」升级成「正确」，不影响开集候选
+                      'allowed': allowed.take(120).toList(),
+                    },
                     timeout: ApiClient._gradeTimeout,
                   )
                   as List)
               .cast<Map<String, dynamic>>();
+      final perAnswer = [
+        for (final _ in answers) <CellGrade>[],
+      ];
+      for (var i = 0; i < slots.length; i++) {
+        final slot = slots[i];
+        if (i >= result.length) {
+          perAnswer[slot.answer].add((
+            verdict: Verdict.pending,
+            candidates: const <String>[],
+          ));
+          continue;
+        }
+        final item = result[i];
+        perAnswer[slot.answer].add((
+          verdict: Verdict.values.byName(item['verdict'] as String),
+          candidates: (item['candidates'] as List).cast<String>(),
+        ));
+      }
       return [
-        for (final item in result)
+        for (var a = 0; a < answers.length; a++)
           (
-            verdict: Verdict.values.byName(item['verdict'] as String),
-            candidates: (item['candidates'] as List).cast<String>(),
+            verdict: combineCells([
+              for (final cell in perAnswer[a]) cell.verdict,
+            ]),
+            cells: perAnswer[a],
           ),
       ];
     } catch (_) {
       // 识别不可用时一律回退到待确认，由家长订正，不能卡住提交流程
-      return [
-        for (final answer in answers)
-          answer.ink.isEmpty
-              ? (verdict: Verdict.blank, candidates: const <String>[])
-              : (verdict: Verdict.pending, candidates: const <String>[]),
-      ];
+      return fallback();
     }
   }
 }

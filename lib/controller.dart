@@ -83,8 +83,11 @@ class Controller extends ChangeNotifier {
       return false;
     }
     for (var i = 0; i < grades.length; i++) {
-      practice.answers[i].automatic = grades[i].verdict;
-      practice.answers[i].candidates = grades[i].candidates;
+      final answer = practice.answers[i];
+      final grade = grades[i];
+      answer.automatic = grade.verdict;
+      answer.cellVerdicts = [for (final cell in grade.cells) cell.verdict];
+      answer.cellCandidates = [for (final cell in grade.cells) cell.candidates];
     }
     practice.submitted = true;
     data.draft = null;

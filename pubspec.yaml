@@ -29,3 +29,5 @@ flutter:
     - assets/demo.json
     - assets/library_renjiao_23.json
     - assets/hanzi_strokes.json
+    - assets/pinyin.json
+    - assets/sentences.json

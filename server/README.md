@@ -44,7 +44,7 @@ uvicorn app.main:app --reload
 
 其他：
 
-- `POST /grade` —— 笔迹 -> 栅格化 -> 识别 -> verdict；`allowed` 为本次练习的字集合
+- `POST /grade` —— 笔迹 -> 栅格化 -> 识别 -> verdict；`items` 每项是一个田字格的笔迹（`expected` 为这一格应该写的字），默写词语时按字逐个提交；`allowed` 为本次练习涉及的候选字集合（最多 120 项 / 200 字）
 - `GET  /health` —— 顺带检查数据库连通性
 
 接口文档：启动后访问 `http://localhost:8000/docs`。

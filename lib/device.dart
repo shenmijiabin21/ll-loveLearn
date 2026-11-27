@@ -73,10 +73,14 @@ class Speech {
   }
 }
 
-typedef Grade = ({Verdict verdict, List<String> candidates});
+/// 单个田字格（词语中的一个字）的判定结果。
+typedef CellGrade = ({Verdict verdict, List<String> candidates});
+
+/// 整个词语的判定：verdict 为整词结论，cells 为逐字结果。
+typedef Grade = ({Verdict verdict, List<CellGrade> cells});
 typedef Candidate = ({String text, double score});
 
-Grade classify(String expected, List<Candidate> candidates) {
+CellGrade classify(String expected, List<Candidate> candidates) {
   final labels = candidates
       .map((item) => item.text.trim())
       .where((text) => text.isNotEmpty && text.length <= 32)
@@ -122,10 +126,11 @@ class DigitalInk implements Grader {
       hasMobileServices &&
       await ml.DigitalInkRecognizerModelManager().downloadModel(language);
 
+  @override
   Future<List<Grade>> grade(List<Answer> answers) async {
     ml.DigitalInkRecognizer? recognizer;
     try {
-      if (answers.any((answer) => answer.ink.isNotEmpty) && await ready()) {
+      if (answers.any((answer) => !answer.untouched) && await ready()) {
         recognizer = ml.DigitalInkRecognizer(languageCode: language);
       }
     } on Exception {
@@ -148,7 +153,27 @@ class DigitalInk implements Grader {
     Answer answer,
     ml.DigitalInkRecognizer? recognizer,
   ) async {
-    if (answer.ink.isEmpty) {
+    final letters = answer.question.prompt.letters;
+    final cells = <CellGrade>[];
+    for (var index = 0; index < letters.length; index++) {
+      cells.add(await _gradeCell(answer, letters[index], index, recognizer));
+    }
+    return (
+      verdict: combineCells([for (final cell in cells) cell.verdict]),
+      cells: cells,
+    );
+  }
+
+  Future<CellGrade> _gradeCell(
+    Answer answer,
+    String expected,
+    int index,
+    ml.DigitalInkRecognizer? recognizer,
+  ) async {
+    final ink = index < answer.cells.length
+        ? answer.cells[index]
+        : const <List<InkPoint>>[];
+    if (ink.isEmpty) {
       return (verdict: Verdict.blank, candidates: const <String>[]);
     }
     if (recognizer == null) {
@@ -156,9 +181,9 @@ class DigitalInk implements Grader {
     }
     try {
       const side = 300.0;
-      final ink = ml.Ink()
+      final writing = ml.Ink()
         ..strokes = [
-          for (final stroke in answer.ink)
+          for (final stroke in ink)
             ml.Stroke()
               ..points = [
                 for (final point in stroke)
@@ -170,12 +195,12 @@ class DigitalInk implements Grader {
               ],
         ];
       final candidates = await recognizer.recognize(
-        ink,
+        writing,
         context: ml.DigitalInkRecognitionContext(
           writingArea: ml.WritingArea(width: side, height: side),
         ),
       );
-      return classify(answer.question.prompt.character, [
+      return classify(expected, [
         for (final candidate in candidates)
           (text: candidate.text, score: candidate.score),
       ]);
